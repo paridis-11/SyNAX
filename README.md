@@ -1,5 +1,7 @@
 # SyNAX
-Brain-inspired Symbiotic Learning Unlocks Dynamic On-Chip Neuromorphic Intelligence (Under Review)
+**Brain-inspired Symbiotic Learning Unlocks Dynamic On-Chip Neuromorphic Intelligence (Under Review)**
+
+![image](Framework.png)
 
 ### **1. Data**
 This project uses three publicly available datasets. Please follow the steps below to download and prepare the datasets:
