@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Subset, random_split
 from torchvision import transforms, datasets
 from torchvision.datasets import CIFAR10, CIFAR100, MNIST, utils
 from sklearn.model_selection import train_test_split
-from spikingjelly.datasets.cifar10_dvs import CIFAR10DVS
+
 
 def Dataset(args):
     trainset, testset = None, None
@@ -210,41 +210,7 @@ def Dataset(args):
 
         testset = TinyImageNetValDataset(val_data_tensor, val_targets_tensor)
 
-    elif args.dataset.lower() == 'cifar10dvs':
-        from spikingjelly.datasets import cifar10_dvs
-        print('CIFAR10-DVS downloadable', CIFAR10DVS.downloadable())
-        print('resource, url, md5/n', CIFAR10DVS.resource_url_md5())
-        # help(CIFAR10DVS)
-        print(cifar10_dvs.__file__)
-        args.num_classes = 10
-        os.makedirs('./data/cifar10_dvs', exist_ok=True)
-        tra_trans = transforms.Compose([
-            transforms.Resize((args.shape, args.shape)),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.repeat(3, 1, 1)),  # 可选
-        ])
 
-        val_trans = transforms.Compose([
-            transforms.Resize((args.shape, args.shape)),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.repeat(3, 1, 1)),  # 可选
-        ])
-
-        trainset = CIFAR10DVS(
-            root='./data/cifar10_dvs/train',
-            data_type='frame',
-            frames_number=args.frames,
-            split_by='number',
-            transform=tra_trans
-        )
-
-        testset = CIFAR10DVS(
-            root='./data/cifar10_dvs/test',
-            data_type='frame',
-            frames_number=args.frames,
-            split_by='number',
-            transform=val_trans
-        )
 
 
     else:

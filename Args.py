@@ -46,7 +46,7 @@ def args_parser():
                         help='datasets: {cifar10, CancerSlides, mnist}')
     parser.add_argument('--partition', type=str, default='iid',
                         help='partition : {iid, dir}')
-    parser.add_argument('--batchsize', type=int, default=4,
+    parser.add_argument('--batchsize', type=int, default=128,
                         help='batchsize')
     parser.add_argument('--dir', type=float, default=0.5,
                         help='Degree of dirichlet')
@@ -78,7 +78,7 @@ def args_parser():
     parser.add_argument('--opt_no_filter', action='store_true', default=True,
                     help='disable bias and bn filter of weight decay')
 
-    parser.add_argument('--sample_ratio', type=float, default=0.2, help="每轮客户端采样比例 (0~1)")
+    parser.add_argument('--sample_ratio', type=float, default=0.5, help="每轮客户端采样比例 (0~1)")
     
     # Zero  parameter
     parser.add_argument('--zero_max', default=0.5,type=float)
@@ -90,7 +90,6 @@ def args_parser():
     parser.add_argument('--softmax_num', default=8,type=int)
     parser.add_argument('--softmax_p', default=0.0125,type=float)
     parser.add_argument('--test_T', default=8,type=int)
-    parser.add_argument('--frames', type=int, default=8, help='Number of frames per DVS sample')
 
     args = parser.parse_args()
     return args
