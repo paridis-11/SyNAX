@@ -270,6 +270,15 @@ class TestNeuron(nn.Module):
     #choose threshold
     def forward(self, x, times=2,gap=3,show=0, tmptime=0,scaletimes=1):
         x2 = x.flatten().float()
+        
+        # Handle large tensors for quantile - aggressively subsample
+        if x2.numel() > 100000:
+            # Use random indices or just slice? Slicing is faster/cheaper.
+            # Ideally we want a representative sample.
+            # Step slicing: take every Nth element to span the tensor
+            step = x2.numel() // 100000
+            x2 = x2[::step]
+            
         threshold = torch.quantile(x2, self.percent, dim=0).item()
         self.scale_p = torch.nn.Parameter((self.scale_p*self.num+threshold)/(self.num+1))
         threshold = -torch.quantile(x2, (1-self.percent), dim=0).item()
