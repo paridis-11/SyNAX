@@ -1,4 +1,10 @@
 
+"""
+SyNAX: Brain-Inspired Symbiotic Learning Framework
+----------------------------------------------------------------------------
+Implementation based on FedNeurX_momentum.py and the provided pseudocode.
+"""
+
 import os
 import random
 import time
@@ -6,28 +12,23 @@ import copy
 import torch
 import torch.nn as nn
 from tqdm import tqdm
+import math
 
 from Data import Data
+from models.dyrep import DyRep, build_optimizer, get_params
 from Node.Node import Global_Node, Node
 from Trainer import Trainer
 from utils.utils import (LR_scheduler, Recorder, Summary, get_log_file_name,
-                         init_args, initialize_device_types, set_random_seed, AverageMeter)
+                         init_args, print_memory_usage, generate_node_list, initialize_device_types, set_random_seed, ann2snn)
 from utils_ann2snn import evaluate_snn
-from utils.utils import ann2snn, compute_snn_difference
+from utils.misc import AverageMeter
 
-# =============================================================================
-# SyNAX Training Functions
-# =============================================================================
 
-def train_synax_ANN(node, epoch, round, global_grad_vector, beta=0.9):
-    """
-    SyNAX ANN Training with Gradient Correction:
-    g_{k,t}^{(j)} = beta * \nabla F_k + (1 - beta) * g_t
-    """
+# Custom ANN Training with Gradient Correction
+def train_synax_ANN(node, epoch, round, g_t, beta=1):
     node.model.to(node.device).train()
     train_loader = node.train_data
     loss_fn = nn.CrossEntropyLoss()
-    
     loss_m = AverageMeter()
     total_loss = 0.0
     avg_loss = 0.0
@@ -35,11 +36,19 @@ def train_synax_ANN(node, epoch, round, global_grad_vector, beta=0.9):
     acc = 0.0
     description = "Node{:d}: loss={:.4f} acc={:.2f}%"
     
-    # Ensure global_grad_vector is on the correct device or move it lazily
-    # To avoid moving it every iteration, we can do it once if memory allows, 
-    # but since it's same size as model, it's fine.
+    # Ensure g_t is on the correct device
+    g_t_device = {k: v.to(node.device) for k, v in g_t.items()}
     
-    with tqdm(train_loader, desc=f"Epoch {epoch}", leave=False) as epochs:
+    # Calculate scaling factor for g_t to match gradient scale
+    # We assume effective step size is roughly lr.
+    # To be consistent with the formula: g_correct = beta * grad + (1-beta) * g_t
+    # g_t is the global update direction (accumulated over a round).
+    # Gradients are per-batch. 
+    # If we strictly follow the formula, we just mix them.
+    # However, g_t might be much larger than a single batch gradient.
+    # Let's trust the pseudocode: g_{k,t}^{(j)} <- beta * grad + (1-beta) * g_t
+    
+    with tqdm(train_loader) as epochs:
         for batch_idx, (data, target) in enumerate(epochs):
             epochs.set_description(description.format(node.num, avg_loss, acc))
             data = data.float().to(node.device)
@@ -47,337 +56,293 @@ def train_synax_ANN(node, epoch, round, global_grad_vector, beta=0.9):
                 target = target.long().to(node.device).squeeze(dim=1)
             else:
                 target = target.long().to(node.device)
-                
             if node.args.dataset.lower() == 'chestxray':
                 target = (target.sum(dim=1) > 0).long()
-
+                
             node.optimizer.zero_grad()
             output = node.model(data)
-            output = output[0] # Handle model wrapper
+            output = output[0] # Handle model output tuple
             loss = loss_fn(output, target)
             loss.backward()
-
-            # --- Gradient Correction ---
-            if global_grad_vector is not None:
-                with torch.no_grad():
-                    for name, param in node.model.named_parameters():
-                        if param.grad is not None and name in global_grad_vector:
-                            # g_t is on global device usually, move to local if needed
-                            g_t = global_grad_vector[name].to(node.device)
-                            # Update gradient in place
-                            param.grad.data.mul_(beta).add_(g_t, alpha=(1 - beta))
-            # ---------------------------
-
+            
+            # --- SyNAX: Gradient Correction ---
+            with torch.no_grad():
+                for name, param in node.model.named_parameters():
+                    if param.grad is not None and name in g_t_device:
+                        # g_{k,t}^{(j)} <- beta * grad + (1-beta) * g_t
+                        # Note: param.grad is updated in place
+                        param.grad.data = beta * param.grad.data + (1 - beta) * g_t_device[name]
+            
             node.optimizer.step()
             
             loss_m.update(loss.item(), n=data.size(0))
-            total_loss += loss.item() # Fix: accumulate item
+            total_loss += loss
             avg_loss = total_loss / (batch_idx + 1)
             pred = output.argmax(dim=1)
-            correct += pred.eq(target.view_as(pred)).sum().item()
+            correct += pred.eq(target.view_as(pred)).sum()
             acc = correct / len(train_loader.dataset) * 100
-
+            
     return avg_loss
 
-def train_synax_SNN_inference(node, perturbed_model):
-    """
-    Executes inference (forward pass) on the perturbed SNN model to compute loss.
-    """
-    perturbed_model.to(node.device)
-    perturbed_model.eval()
-    train_loader = node.train_data
-    loss_fn = nn.CrossEntropyLoss()
-    
-    total_loss = 0.0
-    num_samples = 0
-    
-    with torch.no_grad():
-        # Reduce tqdm frequency or disable for performance
-        for batch_idx, (data, target) in enumerate(train_loader):
-            data = data.to(node.device, non_blocking=True)
-            target = target.to(node.device, non_blocking=True)
-            
-            output = perturbed_model(data)[0]
-            loss = loss_fn(output, target)
-            
-            total_loss += loss.item() * data.size(0)
-            num_samples += data.size(0)
-            
-    avg_loss = total_loss / num_samples if num_samples > 0 else 0.0
-    return avg_loss
-
-# =============================================================================
-# SyNAX Node Classes
-# =============================================================================
 
 class SyNAX_Node(Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def snn_fork_synax(self, global_node):
+        """
+        Load global SNN model.
+        Equivalent to w_{k,t}^{SNN} = w_{k,t-1}^{SNN} - G_t if w_{k,t-1} tracks global.
+        """
+        self.model = copy.deepcopy(global_node.snn_model).to(self.device)
+
+    def compute_snn_feedback(self, G_t, epsilon=0.01):
+        """
+        Compute scalar feedback alpha.
+        Normalize guidance: G_hat = G_t / ||G_t||
+        L+ = F(w + eps * G_hat)
+        L- = F(w - eps * G_hat)
+        alpha = (L+ - L-) / (2 * eps)
+        """
+        # Normalize G_t
+        norm = 0.0
+        for k in G_t:
+            norm += torch.sum(G_t[k] ** 2)
+        norm = torch.sqrt(norm)
         
-    def train_ann_synax(self, epochs, global_grad_vector, beta):
-        for epoch in range(epochs):
-            train_synax_ANN(self, epoch, 0, global_grad_vector, beta)
+        if norm == 0:
+            return 0.0
             
-    def compute_snn_feedback(self, global_snn_model, guidance_vector_G, epsilon):
-        """
-        Computes scalar feedback alpha = (L+ - L-) / (2 * epsilon)
-        """
-        # Normalize guidance
-        # Note: G_t is a dict of tensors
-        norm_sq = sum(torch.sum(g ** 2) for g in guidance_vector_G.values())
-        norm = torch.sqrt(norm_sq)
+        G_hat = {k: v / norm for k, v in G_t.items()}
         
-        hat_G = {k: v / (norm + 1e-8) for k, v in guidance_vector_G.items()}
-        
-        # Prepare perturbed models
-        # We don't need to deepcopy the whole model structure if we can just load state dict,
-        # but modifying weights is easier with a copy or loading.
-        # To save memory, we can modify the model in-place and then revert.
-        
-        original_state_dict = {k: v.clone() for k, v in global_snn_model.state_dict().items()}
-        
-        # L+ : w + epsilon * hat_G
-        for name, param in global_snn_model.named_parameters():
-            if name in hat_G:
-                param.data.add_(hat_G[name].to(param.device), alpha=epsilon)
-                
-        loss_plus = train_synax_SNN_inference(self, global_snn_model)
-        
-        # L- : w - epsilon * hat_G (so subtract 2*epsilon from current +epsilon state)
-        for name, param in global_snn_model.named_parameters():
-            if name in hat_G:
-                param.data.sub_(hat_G[name].to(param.device), alpha=2*epsilon)
-                
-        loss_minus = train_synax_SNN_inference(self, global_snn_model)
-        
-        # Revert to original (optional if we download fresh model next round, but good practice)
-        # Or just: w - epsilon * hat_G + epsilon * hat_G = w
-        for name, param in global_snn_model.named_parameters():
-            if name in hat_G:
-                param.data.add_(hat_G[name].to(param.device), alpha=epsilon)
-                
+        # Helper to get loss on fixed data
+        def get_loss(perturbed_model, data_batches):
+            perturbed_model.eval()
+            loss_fn = nn.CrossEntropyLoss()
+            total_loss = 0.0
+            num_samples = 0
+            with torch.no_grad():
+                for data, target in data_batches:
+                    data, target = data.to(self.device), target.to(self.device)
+                    output = perturbed_model(data)[0]
+                    loss = loss_fn(output, target)
+                    total_loss += loss.item() * data.size(0)
+                    num_samples += data.size(0)
+            return total_loss / (num_samples + 1e-8)
+
+        # Pre-fetch data to ensure same batches for + and - perturbation
+        data_batches = []
+        limit_batches = 10
+        for i, (data, target) in enumerate(self.train_data):
+            if i >= limit_batches: break
+            data_batches.append((data, target))
+
+        # + Perturbation
+        model_plus = copy.deepcopy(self.model)
+        for name, param in model_plus.named_parameters():
+            if name in G_hat:
+                param.data += epsilon * G_hat[name]
+        loss_plus = get_loss(model_plus, data_batches)
+        del model_plus
+
+        # - Perturbation
+        model_minus = copy.deepcopy(self.model)
+        for name, param in model_minus.named_parameters():
+            if name in G_hat:
+                param.data -= epsilon * G_hat[name]
+        loss_minus = get_loss(model_minus, data_batches)
+        del model_minus
+
         alpha = (loss_plus - loss_minus) / (2 * epsilon)
         return alpha
+
 
 class SyNAX_Global_Node(Global_Node):
     def __init__(self, test_data, args):
         super().__init__(test_data, args)
-        self.g_t = None # Global ANN gradient direction
-        self.G_t = None # Global SNN guidance direction
-        self.w_t_ANN = None
-        self.w_t_SNN = None # State dict
-        
-    def init_sy_nax_vars(self):
         # Initialize g_0 = 0, G_0 = 0
-        self.w_t_ANN = copy.deepcopy(self.model.state_dict())
-        self.w_t_SNN = copy.deepcopy(self.snn_model.state_dict())
-        
         self.g_t = {k: torch.zeros_like(v) for k, v in self.model.state_dict().items()}
+        # SNN model is already initialized in super() via ann2snn(self.model)
         self.G_t = {k: torch.zeros_like(v) for k, v in self.snn_model.state_dict().items()}
         
-    def update_global_models(self, ann_updates, avg_alpha, eta_ann, eta_snn):
+        # Keep track of w_t (previous round models)
+        self.w_t_ann = copy.deepcopy(self.model.state_dict())
+        self.w_t_snn = copy.deepcopy(self.snn_model.state_dict())
+
+    def update_global_models(self, avg_ann_update, avg_alpha, eta_ann=1.0, eta_snn=1.0):
         """
-        w_{t+1}^{ANN} = w_t^{ANN} + eta_ann * Delta_w_A - eta_snn * alpha * g_t
+        w_{t+1}^{ANN} = w_t^{ANN} + eta_ann * Delta_w_A - eta_snn * alpha_bar * (g_t / ||g_t||)
         """
-        w_next_ANN = {}
+        new_ann_state = copy.deepcopy(self.model.state_dict())
         
-        # Synthesize new ANN model
-        for key in self.w_t_ANN:
-            update_term = torch.zeros_like(self.w_t_ANN[key])
+        # Calculate global norm of g_t
+        g_t_norm = 0.0
+        for k in self.g_t:
+            g_t_norm += torch.sum(self.g_t[k] ** 2)
+        g_t_norm = torch.sqrt(g_t_norm)
+        print(f"Global g_t norm: {g_t_norm:.4f}")
+        
+        # 1. Update ANN
+        for k in new_ann_state:
+            update_term = torch.zeros_like(new_ann_state[k])
             
-            # Add ANN updates
-            if key in ann_updates:
-                update_term.add_(ann_updates[key], alpha=eta_ann)
+            if k in avg_ann_update:
+                update_term += eta_ann * avg_ann_update[k]
             
-            # Subtract SNN feedback (using previous g_t)
-            if key in self.g_t:
-                # g_t might be on different device
-                g_t_val = self.g_t[key].to(update_term.device)
-                update_term.sub_(g_t_val, alpha=eta_snn * avg_alpha)
+            if k in self.g_t:
+                # Use unnormalized g_t to maintain scale
+                # alpha indicates "how much" of g_t to keep/reverse
+                update_term -= eta_snn * avg_alpha * self.g_t[k]
                 
-            w_next_ANN[key] = self.w_t_ANN[key] + update_term
+            new_ann_state[k] += update_term
             
-        # Load new weights to ANN model
-        self.model.load_state_dict(w_next_ANN)
+        # Update self.model (w_{t+1}^{ANN})
+        self.w_t_ann = copy.deepcopy(self.model.state_dict()) # Save old w_t before updating
+        self.model.load_state_dict(new_ann_state)
         
-        # Update Guidance for next round
-        # w_{t+1}^{SNN} = Convert(w_{t+1}^{ANN})
-        # Note: ann2snn might need the model to be on a specific device
+        # 2. Convert to SNN (w_{t+1}^{SNN})
+        self.w_t_snn = copy.deepcopy(self.snn_model.state_dict()) # Save old w_t SNN
         self.snn_model = ann2snn(self.model, self.test_data, args=self.args)
-        w_next_SNN = self.snn_model.state_dict()
         
+        # 3. Update Guidance for next round
         # g_{t+1} = w_t^{ANN} - w_{t+1}^{ANN}
-        new_g_t = {}
-        for key in self.w_t_ANN:
-            new_g_t[key] = self.w_t_ANN[key].float() - w_next_ANN[key].float()
-        self.g_t = new_g_t
-        
+        current_ann = self.model.state_dict()
+        for k in self.g_t:
+            self.g_t[k] = self.w_t_ann[k] - current_ann[k]
+            
         # G_{t+1} = w_t^{SNN} - w_{t+1}^{SNN}
-        new_G_t = {}
-        # SNN keys might differ or be subset? usually ann2snn keeps structure but converts layers
-        # compute_snn_difference handles finding common keys
-        for key in self.w_t_SNN:
-            if key in w_next_SNN:
-                new_G_t[key] = self.w_t_SNN[key].float() - w_next_SNN[key].float()
-            else:
-                new_G_t[key] = torch.zeros_like(self.w_t_SNN[key])
-                
-        self.G_t = new_G_t
-        
-        # Update stored state for next iteration
-        self.w_t_ANN = copy.deepcopy(w_next_ANN)
-        self.w_t_SNN = copy.deepcopy(w_next_SNN)
+        current_snn = self.snn_model.state_dict()
+        for k in self.G_t:
+             # Ensure keys match (SNN structure might change slightly or keys match exactly)
+             if k in current_snn and k in self.w_t_snn:
+                 self.G_t[k] = self.w_t_snn[k] - current_snn[k]
+             else:
+                 self.G_t[k] = torch.zeros_like(self.G_t[k])
 
 
-# =============================================================================
-# Main Execution
-# =============================================================================
+# init 
+args = init_args()
+set_random_seed(args.seed)
+lr_initial = args.lr
+args.type = 'VIT'
+args.shape = 224  # For Vit
 
-def main():
-    args = init_args()
-    set_random_seed(args.seed)
+if args.wandb ==1:
+    import wandb
+    run_name = f"SyNAX_{args.dataset}_num-{args.node_num}_lepoch-{args.E}_lr-{args.lr}_note-{args.notes}"
+    wandb.init(project="DyFL", name = run_name, entity="paridis")
+    config_dict = vars(args)
+    wandb.config.update(config_dict)
+
+Data = Data(args)
+recorder = Recorder(args)
+file_name  = get_log_file_name(args, directory = "logs/SyNAX")
+
+# init nodes
+snn_ratio = 0.5  # SNN 设备比例
+ann_devices, snn_devices = initialize_device_types(args.node_num, snn_ratio)
+
+Global_node = SyNAX_Global_Node(Data.test_all, args)
+
+Edge_nodes = [
+    SyNAX_Node(
+        k,
+        Data.train_loader[k],
+        Data.test_loader,
+        args,
+        device_type="SNN" if k in snn_devices else "ANN"
+    )
+    for k in range(args.node_num)
+]
+device = args.device
+
+# SyNAX Hyperparameters
+synax_beta = args.zero_momentum # Use args.zero_momentum as beta
+eta_ann = 1.0
+eta_snn = 1.0
+
+# train
+for rounds in range(args.R): 
+    Summary(args)
+    print(f'=============== SyNAX Round {rounds + 1}, device: {device} ===============')
+    args.lr = LR_scheduler(lr_initial, rounds, args.R)
     
-    # Force some args if needed for SyNAX
-    # args.type = 'VIT'
-    # args.shape = 224
+    # 1. Device Sampling
+    sampled_nodes = random.sample(Edge_nodes, int(args.node_num * args.sample_ratio))
+    ann_nodes = [node for node in sampled_nodes if node.device_type == "ANN"]
+    snn_nodes = [node for node in sampled_nodes if node.device_type == "SNN"]
+    
+    ann_updates_list = []
+    snn_alphas = []
+
+    # 2. Parallel Execution
+    
+    # --- Orchestrators (ANN) ---
+    for node in ann_nodes:
+        print(f'--- Round: {rounds+1}, ANN Node: {node.num} ---')
+        node.ann_fork(Global_node) # Get w_t (effectively w_{k,t}^{(0)})
+        w_0 = copy.deepcopy(node.model.state_dict())
+        
+        for epoch in range(args.E):
+            train_synax_ANN(node, epoch, rounds, Global_node.g_t, beta=synax_beta)
+            
+        # Compute Update: Delta w = w_K - w_0
+        w_K = node.model.state_dict()
+        delta_w = {}
+        for k in w_K:
+            delta_w[k] = w_K[k] - w_0[k]
+        
+        ann_updates_list.append(delta_w)
+        node.delete_model()
+        
+    # --- Executors (SNN) ---
+    for node in snn_nodes:
+        print(f'--- Round: {rounds+1}, SNN Node: {node.num} ---')
+        node.snn_fork_synax(Global_node) # Get w_t SNN
+        
+        alpha = node.compute_snn_feedback(Global_node.G_t, epsilon=args.zo_epsilon)
+        snn_alphas.append(alpha)
+        
+        print(f"Node {node.num} alpha: {alpha}")
+        node.delete_model()
+        
+    # 3. Aggregation & Update
+    
+    # Aggregate ANN updates
+    avg_ann_update = {}
+    if ann_updates_list:
+        for k in ann_updates_list[0].keys():
+            avg_ann_update[k] = sum(update[k] for update in ann_updates_list) / len(ann_updates_list)
+    else:
+        avg_ann_update = {k: torch.zeros_like(v) for k, v in Global_node.model.state_dict().items()}
+
+    # Aggregate SNN feedback
+    avg_alpha = 0.0
+    if snn_alphas:
+        avg_alpha = sum(snn_alphas) / len(snn_alphas)
+        
+    # Apply Thresholding / Limiting to alpha (as requested)
+    # Using logic from FedNeurX_momentum.py lines 138-141
+    original_alpha = avg_alpha
+    avg_alpha = max(args.zero_min, min(args.zero_max, avg_alpha))
+    print(f"📢 平均 Alpha: {original_alpha:.4f} -> Clamped: {avg_alpha:.4f}")
+    print(f"📢 阈值: {args.zero_min}, {args.zero_max}")
     
     if args.wandb == 1:
         import wandb
-        run_name = f"SyNAX_{args.dataset}_N{args.node_num}_E{args.E}_lr{args.lr}_{args.notes}"
-        wandb.init(project="DyFL", name=run_name, entity="paridis")
-        wandb.config.update(vars(args))
+        wandb.log({f"{args.dataset}_Alpha": avg_alpha}, step=rounds)
 
-    data_loader = Data(args)
-    # trainer = Trainer(args) # Not used directly, using custom train functions
-    recorder = Recorder(args)
-    file_name = get_log_file_name(args, directory="logs/SyNAX")
+    print(f"Aggregated: ANN Norm: {sum(torch.norm(v) for v in avg_ann_update.values()):.4f}, SNN Alpha: {avg_alpha:.6f}")
     
-    # Init Nodes
-    snn_ratio = 0.5
-    ann_devices, snn_devices = initialize_device_types(args.node_num, snn_ratio)
+    # Synthesize & Update Guidance
+    Global_node.update_global_models(avg_ann_update, avg_alpha, eta_ann=eta_ann, eta_snn=eta_snn)
     
-    global_node = SyNAX_Global_Node(data_loader.test_all, args)
-    global_node.init_sy_nax_vars()
+    recorder.validate(Global_node)
+    recorder.printer(Global_node, file_name=file_name, rounds=rounds)
     
-    # Create Clients
-    # Note: reusing Node class structure but we will use new methods
-    clients = []
-    for k in range(args.node_num):
-        client = SyNAX_Node(
-            k,
-            data_loader.train_loader[k],
-            data_loader.test_loader,
-            args,
-            device_type="SNN" if k in snn_devices else "ANN"
-        )
-        clients.append(client)
+    # Periodic SNN Evaluation (every 5 rounds or last round)
+    if (rounds + 1) % 5 == 0 or (rounds + 1) == args.R:
+        print(f"--- Evaluating SNN at round {rounds + 1} ---")
+        test_stats = evaluate_snn(Global_node.test_data, Global_node.snn_model, device, args.test_T, args)
 
-    # Hyperparameters
-    # eta_ann, eta_snn from args or default
-    eta_ann = 1.0 # Global learning rate for ANN updates
-    eta_snn = args.lr * 1.0 # Learning rate for Symbiotic updates
-    beta = 0.9 # Momentum factor
-    epsilon = args.zo_epsilon # Probe radius
-    
-    # Ensure cifar10 if not specified (though init_args handles defaults)
-    if not args.dataset:
-        args.dataset = 'cifar10'
-    
-    print(f"Starting SyNAX Training: {args.R} rounds, {args.node_num} nodes")
-    
-    for round_idx in range(args.R):
-        Summary(args)
-        print(f'=============== Round {round_idx + 1} ===============')
-        
-        # 1. Select Clients
-        sample_size = int(args.node_num * args.client_sample_ratio)
-        if sample_size < 1: sample_size = 1
-        active_clients = random.sample(clients, sample_size)
-        
-        ann_clients = [c for c in active_clients if c.device_type == "ANN"]
-        snn_clients = [c for c in active_clients if c.device_type == "SNN"]
-        
-        print(f"Active: {len(ann_clients)} ANN, {len(snn_clients)} SNN")
-        
-        # 2. Parallel Client Execution
-        
-        # --- ANN Clients (Orchestrators) ---
-        ann_updates_list = []
-        
-        # Broadcast g_t (implicit by passing it)
-        # We need to simulate the delta update.
-        # Delta_w = w_final - w_initial
-        # But wait, w_initial at client should be w_global.
-        # In the paper pseudocode: w_{k,t}^(0) = w_{k,t-1}^(0) - g_t.
-        # As discussed, we approximate this by sending current global model w_t^{ANN}
-        
-        for client in ann_clients:
-            print(f"  [ANN] Client {client.num} training...")
-            # Load global model
-            client.model.load_state_dict(global_node.model.state_dict())
-            client.optimizer = torch.optim.SGD(client.model.parameters(), lr=args.lr, momentum=args.momentum)
-            
-            # Initial weights
-            w_initial = {k: v.clone() for k, v in client.model.state_dict().items()}
-            
-            # Train with gradient correction
-            client.train_ann_synax(args.E, global_node.g_t, beta)
-            
-            # Compute Update: Delta = w_final - w_initial
-            w_final = client.model.state_dict()
-            delta_w = {}
-            for k in w_initial:
-                delta_w[k] = w_final[k] - w_initial[k]
-                
-            ann_updates_list.append(delta_w)
-            client.delete_model()
-            
-        # --- SNN Clients (Executors) ---
-        snn_alphas = []
-        
-        for client in snn_clients:
-            print(f"  [SNN] Client {client.num} probing...")
-            # Load global SNN model
-            client.model = copy.deepcopy(global_node.snn_model) # Use deepcopy to avoid modifying global
-            
-            # Compute scalar feedback
-            # G_t is passed
-            alpha = client.compute_snn_feedback(client.model, global_node.G_t, epsilon)
-            snn_alphas.append(alpha)
-            
-            print(f"    -> Alpha: {alpha:.6f}")
-            client.delete_model()
-
-        # 3. Server Aggregation & Symbiotic Update
-        
-        # Aggregate ANN updates
-        avg_ann_update = {}
-        if ann_updates_list:
-            for k in ann_updates_list[0].keys():
-                avg_ann_update[k] = sum(update[k] for update in ann_updates_list) / len(ann_updates_list)
-        
-        # Aggregate SNN feedback
-        avg_alpha = sum(snn_alphas) / len(snn_alphas) if snn_alphas else 0.0
-        print(f"  Aggregated ANN updates from {len(ann_updates_list)} clients")
-        print(f"  Aggregated SNN Alpha: {avg_alpha:.6f}")
-        
-        if args.wandb == 1:
-            wandb.log({"avg_alpha": avg_alpha}, step=round_idx)
-
-        # Synthesize new global model
-        # If no ANN clients, we might skip or just use SNN feedback (though algorithm implies symbiotic)
-        # If no SNN clients, avg_alpha is 0, so standard FL.
-        
-        global_node.update_global_models(avg_ann_update, avg_alpha, eta_ann, eta_snn)
-        
-        # Validation
-        recorder.validate(global_node)
-        recorder.printer(global_node, file_name=file_name, rounds=round_idx)
-        
-        # Optional: Test SNN
-        # test_stats = evaluate_snn(global_node.test_data, global_node.snn_model, args.device, args.test_T, args)
-
-    Summary(args)
-
-if __name__ == "__main__":
-    main()
+Summary(args)
