@@ -13,6 +13,6 @@ This project uses three publicly available datasets. Please follow the steps bel
      ```
      data/
        cifar10/
-         imagenet/
-         dvs-cifar-10/
+       imagenet/
+       dvs-cifar-10/
      ```  
