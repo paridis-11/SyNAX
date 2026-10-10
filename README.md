@@ -81,11 +81,9 @@ by default.
 
 ```bash
 DATASET=cifar10 bash scripts/run_static_cifar10.sh resnet18
-DATASET=cifar10 bash scripts/run_static_cifar10.sh vgg
-DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_small
-DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_base
 ```
 
+Replace `resnet18` with `vgg`, `vit_small` or `vit_base` to switch models.
 Set `DATASET=imagenet` to use ImageNet-1K.
 
 The scripts train, then evaluate `best_ann.pt` using the appropriate converter.
