@@ -1,0 +1,38 @@
+{
+  "static_update": {
+    "source": "static/SyNAX_normalized_snn.py",
+    "source_sha256": "dc28930ddccb3cafaf59085c1713422b9a00830f12cb249c38353e0eedacadcb",
+    "excerpt_sha256": "80f79794d2c3eb8e4795463ef76e924202cd7c3c117d0280d150c48b9b08b489",
+    "functions": [
+      "update_global_models",
+      "train_synax_ANN"
+    ]
+  },
+  "static_schedule": {
+    "source": "static/utils/utils.py",
+    "source_sha256": "d786e6161af093fc893d235c006702d8ca7337759a91fe3ab1af225032fb891d",
+    "excerpt_sha256": "07c43e344c97b0f574387632d7fa821bb4b9af5e91c24632f54dd5c532bebf20",
+    "functions": [
+      "LR_scheduler"
+    ]
+  },
+  "static_optimizer": {
+    "source": "static/Node/Node.py",
+    "source_sha256": "610e28cb02cdee6dec2e74fd33f46ea26cf78bcfad9127ba8fa1374f3d8ee8c0",
+    "excerpt_sha256": "c00459df092c5f35cf04e5de8cb412b78c2c5017b813cb89223adfbeecb92bfe",
+    "functions": [
+      "init_optimizer"
+    ]
+  },
+  "event_update": {
+    "source": "event/synax_neuro.py",
+    "source_sha256": "feb4c393e6c5a04f83b06249204dd23046ebfa3194122869bd1c2b0393196c93",
+    "excerpt_sha256": "6cbba24afcf580884a42915cd2cec11edd8cd065cb27741049da11ea0c38dd53",
+    "functions": [
+      "apply_update",
+      "apply_normalized_executor_correction",
+      "compute_snn_guidance",
+      "scheduled_lr"
+    ]
+  }
+}

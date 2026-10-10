@@ -10,6 +10,7 @@
 | --- | --- | --- |
 | `static/` | CIFAR-10 and ImageNet-1K; ResNet-18, VGG and ViT-Small/Base; executor GPU memory | `SyNAX_normalized_snn.py`, `eval_cifar10_snn_checkpoint.py`, `benchmark_gpu_memory.py` |
 | `event/` | CIFAR10-DVS and N-Caltech101, ResNet-18 | `synax_neuro.py`, `bp_sg_burst_resnet_event.py`, `bp_sg_sew_resnet_event.py`, `resnet18_event_online_baselines.py` |
+| [`synax_multihost/`](synax_multihost/README.md) | Multi-host learning with ANN workers and Speck executors over Tailscale or LAN | `server.py`, `client.py`, `provision.py` |
 | `scripts/` | Portable launch commands and dependency setup | See commands below |
 
 Event-stream baselines include architecture-matched Burst SG-BPTT,

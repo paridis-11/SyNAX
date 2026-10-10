@@ -1,0 +1,21 @@
+{
+  "E": 5,
+  "lr": 0.001,
+  "optimizer": "adamw",
+  "momentum": 0.0,
+  "opt_eps": 1e-8,
+  "weight_decay": 0.001,
+  "zero_momentum": 1.0,
+  "zo_epsilon": 0.01,
+  "zero_min": -0.5,
+  "zero_max": 0.5,
+  "eta_ann": 1.0,
+  "eta_snn": 0.1,
+  "time_steps": 40,
+  "batch_size": 32,
+  "feedback_batches": 10,
+  "workers": 0,
+  "sample_ratio": 1.0,
+  "drop_last": true,
+  "seed": 42
+}
