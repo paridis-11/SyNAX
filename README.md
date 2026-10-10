@@ -80,9 +80,9 @@ by default.
 ## Static-image Training
 
 ```bash
-GPU=0 DATASET=cifar10 bash scripts/run_static_cifar10.sh resnet18
-GPU=0 DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_small
-GPU=0 DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_base
+DATASET=cifar10 bash scripts/run_static_cifar10.sh resnet18
+DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_small
+DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_base
 ```
 
 Set `DATASET=imagenet` to use ImageNet-1K.
@@ -109,10 +109,10 @@ The default is IID with 50 clients. For a Dirichlet partition, set
 Prepare both frame caches and supply their parent directory through `DATA_ROOT`.
 
 ```bash
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh synax cifar10dvs
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh burst_sgbptt cifar10dvs
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh sew_sgbptt cifar10dvs
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh stllr_local cifar10dvs
+DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh synax cifar10dvs
+DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh burst_sgbptt cifar10dvs
+DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh sew_sgbptt cifar10dvs
+DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh stllr_local cifar10dvs
 ```
 
 Replace `cifar10dvs` with `ncaltech101` to use N-Caltech101.
@@ -128,7 +128,7 @@ stage-local classifiers and persistent client optimizer states.
 ## GPU Memory Benchmark
 
 ```bash
-GPU=0 bash scripts/run_gpu_memory.sh
+bash scripts/run_gpu_memory.sh
 ```
 
 The benchmark compares one SG-BPTT training step with SyNAX executor-side
@@ -146,7 +146,7 @@ Raw and summary CSV files and metadata JSON are saved under `results/memory/`.
 To select models:
 
 ```bash
-GPU=0 bash scripts/run_gpu_memory.sh resnet18 vit_small
+bash scripts/run_gpu_memory.sh resnet18 vit_small
 ```
 
 ## Third-party Code
