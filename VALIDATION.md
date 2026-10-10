@@ -38,3 +38,15 @@ Thirteen launcher dry runs checked 16 Python entry-point paths, covering all
 static models, both event datasets and all four event methods, plus the GPU
 memory launcher. Working directories, GPU masking, memory `PYTHONPATH` and
 the S-TLLR dependency path were checked without starting training.
+
+## Historical Run Context
+
+The static experiments span code revisions; the original
+`SNN_multiseed/results.tsv` has not been recovered. Evaluation uses the saved
+best ANN checkpoint. Figure 2 event curves use seeds 42--44 for SyNAX and
+SG-BPTT, and seeds 42--46 for S-TLLR.
+
+The recorded server environment uses an NVIDIA PyTorch build. The README
+installation recipe uses the corresponding public PyTorch release. Launchers
+set `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python` for compatibility with the
+older ONNX installation in the server image.

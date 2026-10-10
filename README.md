@@ -6,9 +6,8 @@
 
 ## Software Experiments
 
-This package contains the software experiment code requested for the first
-SyNAX code release. It contains no datasets, pretrained weights, checkpoints,
-experiment logs, hardware measurements, or credentials.
+Code for SyNAX software experiments on static images and event streams,
+including SNN evaluation and executor GPU memory benchmarks.
 
 ## Contents
 
@@ -18,9 +17,8 @@ experiment logs, hardware measurements, or credentials.
 | `event/` | CIFAR10-DVS and N-Caltech101, ResNet-18 | `synax_neuro.py`, `bp_sg_burst_resnet_event.py`, `bp_sg_sew_resnet_event.py`, `resnet18_event_online_baselines.py` |
 | `scripts/` | Portable launch commands and dependency setup | See commands below |
 
-The event comparison includes SyNAX, architecture-matched Burst SG-BPTT,
-SEW-ResNet SG-BPTT, and the local-loss S-TLLR implementation. Speck hardware
-experiments and illumination adaptation are outside this package.
+Event-stream baselines include architecture-matched Burst SG-BPTT,
+SEW-ResNet SG-BPTT, and local-loss S-TLLR.
 
 ## Environment
 
@@ -35,13 +33,9 @@ python -m pip install -r requirements.txt
 python scripts/fetch_burst_dependency.py
 ```
 
-`environment_observed.json` records the current server versions. The server uses
-an NVIDIA PyTorch build; the installation command above uses the corresponding
-public PyTorch release and is not a recovered historical environment lock.
-
-The scripts set `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python` for compatibility
-with the older ONNX installation found in the server image. Weights & Biases
-is disabled by default. Dataset preparation is described in `DATA.md`.
+Dependency versions are listed in [environment_observed.json](environment_observed.json).
+See [DATA.md](DATA.md) for dataset preparation. Weights & Biases is disabled
+by default.
 
 ## Static-image Training
 
@@ -53,8 +47,8 @@ GPU=0 bash scripts/run_static_cifar10.sh vit_base
 
 The scripts train, then evaluate `best_ann.pt` using the appropriate converter.
 ResNet uses Burst ANN2SNN; ViTs use the native project converter.
-The default is IID; for a Dirichlet
-partition use `PARTITION=dir DIR_ALPHA=0.5`. `NODES` defaults to 50.
+The default is IID with 50 clients. For a Dirichlet partition, set
+`PARTITION=dir DIR_ALPHA=0.5`.
 
 | Setting | ResNet-18 | ViT-Small / ViT-Base |
 | --- | ---: | ---: |
@@ -68,12 +62,7 @@ partition use `PARTITION=dir DIR_ALPHA=0.5`. `NODES` defaults to 50.
 | Executor coefficient | 0.1 | 0.1 |
 | SNN timesteps | 8 | 8 |
 
-The evaluation selects the saved best ANN checkpoint, rather than assuming the
-last round or best evaluated SNN is the same endpoint. Historical static
-results were generated across different code revisions; the missing original
-`SNN_multiseed/results.tsv` has not been reconstructed here.
-
-## Figure 2 event experiments
+## Event-stream Training
 
 Prepare both frame caches and supply their parent directory through `DATA_ROOT`.
 
@@ -85,42 +74,34 @@ GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh sew_sgbpt
 GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh stllr_local cifar10dvs
 ```
 
-Each method supports both datasets. SyNAX and SG-BPTT main curves use seeds
-42--44; S-TLLR was extended to seeds 42--46. The common federation protocol is
+Each method supports both datasets. The shared federation protocol is
 six clients, full participation, 200 rounds, one local epoch, and SNN `T=8`.
-Method-specific optimizers, augmentations, batch sizes, and normalizations are
-explicit in the launcher. They are not all identical.
+Method-specific optimization and preprocessing settings are defined in
+`scripts/run_event_resnet18.sh`.
 
 Event SyNAX uses AdamW with learning rate 0.001 and executor coefficient 0.005.
 Burst and SEW SG-BPTT use SGD at 0.05. S-TLLR-local uses Adam at 0.001 with
 stage-local classifiers and persistent client optimizer states.
 
-## Figure 2j GPU memory benchmark
-
-Use `benchmark_gpu_memory.py` for the standardized SG-BPTT/SyNAX executor
-memory comparison. This is the only memory benchmark included in the package.
-
-From the package root:
+## GPU Memory Benchmark
 
 ```bash
 GPU=0 bash scripts/run_gpu_memory.sh
 ```
 
-This runs ResNet-18 and ViT-Small/Base/Large with batch size 4, SNN `T=8`,
-FP32, three repeats, and SGD at learning rate 0.05, momentum 0.9 and weight
-decay 0.0005 for SG-BPTT. ResNet inputs are 32x32; ViT inputs are 224x224.
-It uses synthetic inputs and needs no dataset or checkpoint. SyNAX measures
-two forward probes with an in-memory perturbation direction, not ANN
-orchestrator memory or a complete federated training round. Model conversion
-occurs before peak statistics are reset. The reported metric includes all
-process-local live CUDA tensors at that point and during the measured step.
+The benchmark compares one SG-BPTT training step with SyNAX executor-side
+two-point forward probing using synthetic inputs. Peak allocated CUDA tensor
+memory is measured with `torch.cuda.max_memory_allocated` and reported as
+`peak_allocated_gib` in GiB (bytes / 1024^3). Measurement begins after model
+conversion and includes resident tensors and allocations during the measured step.
 
-CSV, summary CSV and metadata JSON are written under `results/memory/`.
-The figure metric is `peak_allocated_gib` from
-`torch.cuda.max_memory_allocated`, in GiB (bytes / 1024^3), not reserved
-memory or `nvidia-smi` process memory. Large-model SG-BPTT may require an
-80 GB GPU; an out-of-memory error is not a valid memory measurement.
-For a smaller run, pass model names:
+Defaults are ResNet-18 and ViT-Small/Base/Large, batch size 4, SNN `T=8`,
+FP32, and three repeats. SG-BPTT uses SGD with learning rate 0.05, momentum
+0.9 and weight decay 0.0005. ResNet inputs are 32x32; ViT inputs are 224x224.
+An 80 GB GPU is recommended for ViT-Large SG-BPTT.
+
+Raw and summary CSV files and metadata JSON are saved under `results/memory/`.
+To select models:
 
 ```bash
 GPU=0 bash scripts/run_gpu_memory.sh resnet18 vit_small
