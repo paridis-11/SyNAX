@@ -1,0 +1,14 @@
+[
+  {
+    "path": "general_utils/fold_bn.py",
+    "sha256": "eabfd3b2e1e8a949cf8367fda88d4909e58438b63db98ba7e638fdfbfab7ce10"
+  },
+  {
+    "path": "general_utils/spiking_layer.py",
+    "sha256": "3055bed7c9c8ff32d6f5f29b156dc6058b84b62f5489ffd10174e5b4bc4328aa"
+  },
+  {
+    "path": "neuromorphic/convert_neuromorphic.py",
+    "sha256": "988150f867df4e97a386c78def9e8527b8d90c36bac8243b6d27ec3612229330"
+  }
+]

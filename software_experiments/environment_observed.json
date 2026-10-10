@@ -1,0 +1,19 @@
+{
+  "python": "3.10",
+  "note": "Current server environment, not a historical environment lock.",
+  "torch": "2.3.0a0+6ddf5cf85e.nv24.4",
+  "torchvision": "0.18.0a0",
+  "timm": "1.0.27",
+  "numpy": "1.24.4",
+  "scipy": "1.12.0",
+  "scikit-learn": "1.2.0",
+  "matplotlib": "3.8.4",
+  "Pillow": "10.2.0",
+  "PyYAML": "6.0.3",
+  "tqdm": "4.70.0",
+  "medmnist": "3.0.2",
+  "spikingjelly": "0.0.0.0.14",
+  "tensorboard": "2.9.0",
+  "wandb": "not found in current environment",
+  "tonic": "1.6.0"
+}

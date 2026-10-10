@@ -1,0 +1,32 @@
+SyNAX 软件实验代码包
+
+包含：
+1. CIFAR-10 的 SyNAX ResNet-18、ViT-Small、ViT-Base 训练代码及依赖。
+2. eval_cifar10_snn_checkpoint.py 和转换、评估命令。
+3. Figure 2 的 CIFAR10-DVS、N-Caltech101 ResNet-18 软件实验。
+4. Burst SG-BPTT、SEW-ResNet SG-BPTT、S-TLLR-local 基线入口。
+5. requirements.txt、数据准备说明、可移植启动脚本、源码哈希与检查记录。
+6. 显存测试：static_cifar10/benchmark_gpu_memory.py（Figure 2j 使用的标准化测试）。
+
+复现显存测试，在包根目录执行：
+GPU=0 bash scripts/run_gpu_memory.sh
+不需要数据集；输出为原始 CSV、汇总 CSV 和测试环境 JSON。
+显存测试仅保留上述标准化版本。
+
+不包含数据集、模型权重、训练日志、服务器登录信息和 Speck 实机实验。
+
+手动上传 GitHub：
+解压 ZIP，查看 README.md 后，将代码文件夹内容上传到 paridis-11/SyNAX
+中的独立目录（例如 software_experiments），保留各子目录结构。
+建议不要仅把 ZIP 当成唯一代码发布文件，也不要用本包 README 覆盖仓库
+根目录中已有的论文总说明；可以在原总说明中添加指向新目录的链接。
+
+Burst ANN2SNN 是外部依赖：下载本仓库后运行
+python scripts/fetch_burst_dependency.py
+会获取指定上游版本、应用服务器兼容补丁，并核对修改后文件的哈希。
+
+本包通过语法、导入和基本模型检查。没有重新跑完整训练和全部种子，
+也没有宣称当前服务器源码就是所有旧论文结果的冻结版本。
+当前服务器环境信息见 environment_observed.json。
+
+S-TLLR 第三方源代码保留了其 MIT LICENSE，请一并上传。

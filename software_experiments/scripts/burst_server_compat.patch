@@ -1,0 +1,183 @@
+--- a/general_utils/fold_bn.py
++++ b/general_utils/fold_bn.py
+@@ -1,13 +1,17 @@
+ import torch
+ import torch.nn as nn
+ import torch.nn.init as init
++from general_utils.utils import StraightThrough
+ 
+ def _fold_bn(conv_module, bn_module, avg=False):
+     w = conv_module.weight.data
+     y_mean = bn_module.running_mean
+     y_var = bn_module.running_var
+     safe_std = torch.sqrt(y_var + bn_module.eps)
+-    w_view = (conv_module.out_channels, 1, 1, 1)
++    if isinstance(conv_module, nn.Conv2d):
++        w_view = (conv_module.out_channels, 1, 1, 1)
++    else:
++        w_view = (conv_module.out_features, 1)
+     if bn_module.affine:
+         weight = w * (bn_module.weight / safe_std).view(w_view)
+         beta = bn_module.bias - bn_module.weight * y_mean / safe_std
+--- a/general_utils/spiking_layer.py
++++ b/general_utils/spiking_layer.py
+@@ -10,6 +10,8 @@
+ from tqdm import tqdm
+ 
+ # ------------------------- New Version ---------------------------
++
++layer = 0
+ 
+ class SpikeModule(nn.Module):
+     """
+@@ -76,7 +78,7 @@
+             return self.relu(self.fwd_func(input, self.org_weight, self.org_bias, **self.fwd_kwargs))
+ 
+     def init_membrane_potential(self):
+-        self.neuron.reset()
++        # self.neuron.reset()
+         self.mem_pot = self.mem_pot_init if isinstance(self.mem_pot_init, int) else self.mem_pot_init.clone()
+         self.cur_t = 0
+ 
+@@ -121,8 +123,13 @@
+                 else:
+                     continue
+             elif isinstance(immediate_child_module, nn.Linear):
+-                self.classifier = copy.deepcopy(immediate_child_module)
+-                # setattr(module, name, StraightThrough())
++                if name in ['fc', 'head', 'classifier']:
++                    self.classifier = copy.deepcopy(immediate_child_module)
++                    # setattr(module, name, StraightThrough())
++                else:
++                    setattr(module, name, SpikeModule(sim_length=sim_length, maxspike=maxspike, conv=immediate_child_module))
++                    self.spike_module_layers.append(module)
++                    prev_module = getattr(module, name)
+             else:
+                 prev_module = self.spike_module_refactor(
+                     immediate_child_module, sim_length=sim_length, maxspike=maxspike, prev_module=prev_module)
+@@ -181,6 +188,15 @@
+                     act_thresh = act_thresh.reshape(1, num_channel, 1, 1)
+                 else:
+                     act_thresh = quantile(output_batch, self.percentile)
++            else:
++                if self.channel_wise and len(output_batch.shape) == 4:
++                    num_channel = output_batch.shape[1]
++                    act_thresh = torch.ones(num_channel).type_as(output_batch)
++                    for i in range(num_channel):
++                        act_thresh[i] = output_batch[:, i].max()
++                    act_thresh = act_thresh.reshape(1, num_channel, 1, 1)
++                else:
++                    act_thresh = output_batch.max()
+             return act_thresh
+ 
+         if self.max_act is None:
+--- a/neuromorphic/convert_neuromorphic.py
++++ b/neuromorphic/convert_neuromorphic.py
+@@ -2,18 +2,27 @@
+ import os
+ import random
+ from unittest import result
++import sys
++
++# Add project root to sys.path to allow importing general_utils
++sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
++
+ from torch import nn
+ import numpy as np
+ import torch
+ 
+ from train_neuromorphic import *
+-from ..general_utils.calibration import bias_corr_model
++from general_utils.calibration import bias_corr_model
+ from models.resnet import res_spcials, SpikeResModule
+ from models.resnet import spiking_resnet18, spiking_resnet34
+-from ..general_utils.spiking_layer import *
+-from .models.vgg import vgg11, vgg16, vgg_specials
++try:
++    from models.vit import vit_cifar10dvs, vit_tiny_cifar10dvs
++except ImportError:
++    pass
++from general_utils.spiking_layer import *
++from models.vgg import vgg11, vgg16, vgg_specials
+ import torchvision.models as models
+-from ..general_utils.fold_bn import search_fold_and_remove_bn
++from general_utils.fold_bn import search_fold_and_remove_bn
+ 
+ def seed_all(seed=1029):
+     random.seed(seed)
+@@ -48,17 +57,17 @@
+     return 100 * correct / total, spikecount
+ 
+ 
+-def load_data(dataset, batch_size, distributed=False):
++def load_data(dataset, batch_size, data_path, distributed=False):
+     # Data loading code
+     # print("Loading data")
+ 
+     if dataset == 'cifar10dvs':
+-        dataset_train, dataset_test = Cifar10DVS(root="/dataset/CIFAR10DVS", resolution=(128, 128))
++        dataset_train, dataset_test = Cifar10DVS(root=os.path.join(data_path, "CIFAR10DVS"), resolution=(128, 128))
+         nb_classes = 10
+ 
+     elif dataset == 'dvs128gesture':
+-        dataset_train, dataset_test = Dvs128Gesture(root="dataset/DvsGesture", resolution=(128, 128))
+-        nb_classes = 4
++        dataset_train, dataset_test = Dvs128Gesture(root=os.path.join(data_path, "DvsGesture"), resolution=(128, 128))
++        nb_classes = 11
+        
+     elif dataset == 'ncars':
+         event_resolution = (100, 120)
+@@ -152,7 +161,7 @@
+ 
+         # use_cifar10 = args.dataset == 'CIFAR10'
+ 
+-        train_loader, test_loader, num_classes = load_data(args.dataset, args.batch_size)
++        train_loader, test_loader, num_classes = load_data(args.dataset, args.batch_size, args.dpath)
+ 
+         # ann = load_model(args.arch, 10)
+         if args.arch == 'resnet18':
+@@ -163,17 +172,27 @@
+             ann = vgg16(num_classes=num_classes)
+         elif args.arch == 'vgg11':
+             ann = vgg11(num_classes=num_classes)
+-
+-        load_path = ""
+-
+-    # state_dict = {k.replace('base_model.', ''): v for k, v in state_dict.items() if k.startswith('base_model.')}
++        elif args.arch == 'vit':
++            ann = vit_cifar10dvs(num_classes=num_classes)
++        elif args.arch == 'vit_tiny':
++            ann = vit_tiny_cifar10dvs(num_classes=num_classes)
++
++        if args.model:
++            load_path = args.model
++        else:
++            load_path = "./logs/checkpoint_max_test_acc1.pth"
++
++        # state_dict = {k.replace('base_model.', ''): v for k, v in state_dict.items() if k.startswith('base_model.')}
+         state_dict = torch.load(load_path, map_location=device)['model']
+         new_state_dict = {}
+         for k, v in state_dict.items():
+-            if k.startswith('base_model.'):
+-                new_key = k.replace('base_model.', '')
+-            else:
+-                new_key = k
++            new_key = k
++            if new_key.startswith('module.'):
++                new_key = new_key[7:]
++            if new_key.startswith('base_model.'):
++                new_key = new_key[11:]
++            if new_key.startswith('_orig_mod.'):
++                new_key = new_key[10:]
+             new_state_dict[new_key] = v
+ 
+         ann.load_state_dict(new_state_dict, strict=True)
+@@ -187,6 +206,8 @@
+             args.maxspike = args.initialspike
+         if args.arch == 'vgg11':
+             snn = SpikeModel(model=ann, sim_length=sim_length, specials=vgg_specials, maxspike=args.maxspike)
++        elif args.arch == 'vit' or args.arch == 'vit_tiny':
++            snn = SpikeModel(model=ann, sim_length=sim_length, specials={}, maxspike=args.maxspike)
+         else:
+             snn = SpikeModel(model=ann, sim_length=sim_length, specials=res_spcials, maxspike=args.maxspike)
+         snn.cuda()
