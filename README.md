@@ -129,27 +129,16 @@ For a smaller run, pass model names:
 GPU=0 bash scripts/run_gpu_memory.sh resnet18 vit_small
 ```
 
-## External code and provenance
+## Third-party Code
 
-Burst conversion depends on [bic-L/burst-ann2snn](https://github.com/bic-L/burst-ann2snn).
-The setup script fetches a fixed upstream commit and applies the three supplied
-server compatibility patches, verifying the resulting file hashes. This third-party repository
-is installed separately rather than relicensed as SyNAX code. Its server-side
-source hashes are recorded in `SOURCE_MANIFEST.json`; the upstream commit is
-not asserted to be the original experiment's commit. The patched conversion
-modules match the archived server files exactly.
+ANN-to-SNN conversion uses [Burst ANN2SNN](https://github.com/bic-L/burst-ann2snn).
+Run `python scripts/fetch_burst_dependency.py` to install the pinned version
+with the supplied compatibility patches.
 
-The included S-TLLR implementation retains its MIT license under
-`event_resnet18/third_party/S-TLLR/LICENSE`. See `THIRD_PARTY.md` for references.
-The parent SyNAX repository's license remains authoritative for SyNAX-owned
-code; this package does not assign a new license to third-party material.
-
-Training sources were copied from the server on 2026-10-10;
-the standardized memory benchmark was copied from the local
-Figure 2 measurement directory.
-`SOURCE_MANIFEST.json` records their hashes. Portable launchers and documents
-were added during packaging. `VALIDATION.md` records the checks actually run;
-the package has not rerun the full multi-seed experiments.
+The [S-TLLR](https://github.com/mapolinario94/S-TLLR) baseline is included under
+its MIT license. See [THIRD_PARTY.md](THIRD_PARTY.md) for references,
+[SOURCE_MANIFEST.json](SOURCE_MANIFEST.json) for source hashes, and
+[VALIDATION.md](VALIDATION.md) for validation details.
 
 ## Contact
 
