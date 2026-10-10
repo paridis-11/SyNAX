@@ -15,10 +15,10 @@ import urllib.error
 
 import torch
 
-from synax_multihost import backends
-from synax_multihost.provision import provision
-from synax_multihost.server import Conflict, Federation, make_server
-from synax_multihost.wire import atomic_save, digest, pack, Transport, unpack
+from speck import backends
+from speck.provision import provision
+from speck.server import Conflict, Federation, make_server
+from speck.wire import atomic_save, digest, pack, Transport, unpack
 
 
 class ProtocolTests(unittest.TestCase):
@@ -165,7 +165,7 @@ class ProtocolTests(unittest.TestCase):
     def test_commit_failure_does_not_change_global_model(self):
         before = backends.cpu_state(self.engine.model)
         self.submit(self.roster[0], self.result(self.roster[0]))
-        with patch("synax_multihost.server.convert", side_effect=ValueError("conversion failed")):
+        with patch("speck.server.convert", side_effect=ValueError("conversion failed")):
             with self.assertRaises(ValueError):
                 self.submit(self.roster[1], self.result(self.roster[1]))
         self.assertEqual(self.engine.status, "failed")
@@ -381,7 +381,7 @@ class MultiProcessTests(unittest.TestCase):
                 processes.append(process)
                 return process
             try:
-                coordinator = start("server", ["synax_multihost.server", "--roster", str(root / "credentials/roster.json"),
+                coordinator = start("server", ["speck.server", "--roster", str(root / "credentials/roster.json"),
                     "--backend", "toy", "--bind", "127.0.0.1", "--port", str(port),
                     "--output", str(root / "run"), "--rounds", "3", "--round-timeout", "60"])
                 transport = Transport(url, roster[0]["token"], timeout=2)
@@ -396,7 +396,7 @@ class MultiProcessTests(unittest.TestCase):
                         if time.time() > deadline:
                             self.fail("Coordinator did not start")
                         time.sleep(0.1)
-                workers = [start(member["id"], ["synax_multihost.client", "--server", url,
+                workers = [start(member["id"], ["speck.client", "--server", url,
                     "--credentials", str(root / "credentials" / (member["id"] + ".json")),
                     "--state-dir", str(root / member["id"]), "--device", "cpu", "--poll-seconds", "0.1"])
                     for member in roster]

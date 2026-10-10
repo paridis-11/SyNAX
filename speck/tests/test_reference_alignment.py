@@ -12,10 +12,10 @@ from unittest.mock import patch
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-from synax_multihost import algorithm, backends
-from synax_multihost.provision import provision
-from synax_multihost.server import Federation
-from synax_multihost.wire import digest, pack
+from speck import algorithm, backends
+from speck.provision import provision
+from speck.server import Federation
+from speck.wire import digest, pack
 
 
 def reference(name):

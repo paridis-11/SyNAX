@@ -19,7 +19,7 @@ checked on that host. Speck itself does not run Tailscale or Python.
 
 ## Files and Environment
 
-Run commands from the project root, containing both `synax_multihost/` and the
+Run commands from the project root, containing both `speck/` and the
 existing `synax_speck_event.py`. Copy the same sources to every host.
 The event backend reuses that module's models, data utilities, conversion and
 event formatting. ANN training follows the formal static runner's algorithm.
@@ -59,10 +59,10 @@ and [network security](https://tailscale.com/kb/1429/secure).
 Generate credentials on the coordinator:
 
 ```bash
-python -m synax_multihost.provision --directory synax_multihost/credentials --ann-clients 2 --executors 4
+python -m speck.provision --directory speck/credentials --ann-clients 2 --executors 4
 ```
 
-Keep `synax_multihost/credentials/roster.json` on the coordinator. Transfer only `ann-1.json` to
+Keep `speck/credentials/roster.json` on the coordinator. Transfer only `ann-1.json` to
 the first ANN worker, `ann-2.json` to the second, and one executor JSON file to
 each Speck worker, using SSH/SCP with normal host-key verification. Do not commit
 these files or model checkpoints to GitHub.
@@ -91,18 +91,18 @@ See [Serve](https://tailscale.com/docs/reference/tailscale-cli/serve) and
 ## Coordinator
 
 ```bash
-python -m synax_multihost.server \
-  --roster synax_multihost/credentials/roster.json \
+python -m speck.server \
+  --roster speck/credentials/roster.json \
   --bind <coordinator-tailscale-ip> --port 8765 \
   --backend event --checkpoint /path/to/best_sinabs_snn.pt \
-  --output synax_multihost/runs/multihost --rounds 80
+  --output speck/runs/multihost --rounds 80
 ```
 
 Architecture, dataset and conversion settings come from the checkpoint. Existing
 training hyperparameters are inherited where present; missing values use the
-defaults in `backends.py`. Use `--options synax_multihost/options.example.json`
+defaults in `backends.py`. Use `--options speck/options.example.json`
 to explicitly override training parameters. The run's resolved options
-are stored in `synax_multihost/runs/multihost/state.pt` under `spec.options`.
+are stored in `speck/runs/multihost/state.pt` under `spec.options`.
 
 The coordinator is CPU-based; ANN training happens on the worker GPUs.
 The default executor mode for the event backend is real `speck` hardware.
@@ -111,9 +111,9 @@ For software-only integration testing, use `--executor-mode sinabs` explicitly.
 ## ANN Worker
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python -m synax_multihost.client \
+CUDA_VISIBLE_DEVICES=0 python -m speck.client \
   --server http://<coordinator-tailscale-ip>:8765 \
-  --credentials synax_multihost/credentials/ann-1.json --state-dir synax_multihost/runs/ann-1 \
+  --credentials speck/credentials/ann-1.json --state-dir speck/runs/ann-1 \
   --device cuda:0 --data-root /path/to/training-data
 ```
 
@@ -124,9 +124,9 @@ process. Orin uses the same worker entry point.
 ## Speck Worker
 
 ```bash
-python -m synax_multihost.client \
+python -m speck.client \
   --server http://<coordinator-tailscale-ip>:8765 \
-  --credentials synax_multihost/credentials/executor-1.json --state-dir synax_multihost/runs/executor-1 \
+  --credentials speck/credentials/executor-1.json --state-dir speck/runs/executor-1 \
   --data-root /path/to/training-data --speck-device speck2fdevkit:1
 ```
 
@@ -223,7 +223,7 @@ on data excluded from all worker training shards.
 ## Tests
 
 ```bash
-python -m unittest discover -s synax_multihost/tests -v
+python -m unittest discover -s speck/tests -v
 ```
 
 The suite includes a coordinator and independent CPU worker processes over
