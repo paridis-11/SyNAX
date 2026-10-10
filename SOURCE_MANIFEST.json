@@ -35,7 +35,7 @@
       "bytes": 16329
     },
     "event/synax_neuro.py": {
-      "sha256": "0a4de618f926e3c6c4d9bfe84e6be69dbe3ab524860dfab3571080a85ed3487b",
+      "sha256": "feb4c393e6c5a04f83b06249204dd23046ebfa3194122869bd1c2b0393196c93",
       "bytes": 46705
     },
     "event/bp_sg_burst_resnet_event.py": {

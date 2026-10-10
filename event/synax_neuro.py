@@ -846,7 +846,7 @@ def compute_snn_guidance(current_snn: nn.Module, previous_snn: nn.Module) -> Dic
     flat = []
     for key, value in current_state.items():
         if value.is_floating_point() and key in previous_state:
-            diff = value.detach().float() - previous_state[key].detach().float()
+            diff = previous_state[key].detach().float() - value.detach().float()
             guidance[key] = diff
             flat.append(diff.flatten())
     if not flat:
