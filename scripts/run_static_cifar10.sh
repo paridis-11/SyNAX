@@ -9,9 +9,9 @@ case "$DATASET" in
   *) echo 'DATASET must be cifar10 or imagenet' >&2; exit 2 ;;
 esac
 case "$MODEL" in
-  resnet18) ROUNDS=100; CONVERTER=burst ;;
+  resnet18|vgg|vgg16) ROUNDS=100; CONVERTER=burst ;;
   vit_small|vit_base) ROUNDS=500; CONVERTER=native ;;
-  *) echo 'MODEL must be resnet18, vit_small, or vit_base' >&2; exit 2 ;;
+  *) echo 'MODEL must be resnet18, vgg, vgg16, vit_small, or vit_base' >&2; exit 2 ;;
 esac
 PY=${PYTHON_BIN:-python}
 PARTITION=${PARTITION:-iid}

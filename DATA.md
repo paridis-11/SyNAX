@@ -9,7 +9,7 @@ the dependencies in `requirements.txt`. Download links are listed in the
 Run the static script from the package root. It changes to `static/`,
 where the original loader downloads CIFAR-10 into `static/data/`.
 The loader uses the original CIFAR-10 train/test splits. The training entry
-point uses 32 x 32 inputs for ResNet-18 and 224 x 224 inputs for ViTs.
+point uses 32 x 32 inputs for ResNet-18/VGG and 224 x 224 inputs for ViTs.
 
 For a manual download, select the **CIFAR-10 Python version** on the
 [official page](https://www.cs.toronto.edu/~kriz/cifar.html) and extract

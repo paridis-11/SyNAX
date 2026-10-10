@@ -8,7 +8,7 @@
 
 | Directory | Experiments | Entry points |
 | --- | --- | --- |
-| `static/` | CIFAR-10 and ImageNet-1K; ResNet-18 and ViT-Small/Base; executor GPU memory | `SyNAX_normalized_snn.py`, `eval_cifar10_snn_checkpoint.py`, `benchmark_gpu_memory.py` |
+| `static/` | CIFAR-10 and ImageNet-1K; ResNet-18, VGG and ViT-Small/Base; executor GPU memory | `SyNAX_normalized_snn.py`, `eval_cifar10_snn_checkpoint.py`, `benchmark_gpu_memory.py` |
 | `event/` | CIFAR10-DVS and N-Caltech101, ResNet-18 | `synax_neuro.py`, `bp_sg_burst_resnet_event.py`, `bp_sg_sew_resnet_event.py`, `resnet18_event_online_baselines.py` |
 | `scripts/` | Portable launch commands and dependency setup | See commands below |
 
@@ -81,6 +81,7 @@ by default.
 
 ```bash
 DATASET=cifar10 bash scripts/run_static_cifar10.sh resnet18
+DATASET=cifar10 bash scripts/run_static_cifar10.sh vgg
 DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_small
 DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_base
 ```
@@ -88,11 +89,11 @@ DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_base
 Set `DATASET=imagenet` to use ImageNet-1K.
 
 The scripts train, then evaluate `best_ann.pt` using the appropriate converter.
-ResNet uses Burst ANN2SNN; ViTs use the native project converter.
+ResNet and VGG use Burst ANN2SNN; ViTs use the native project converter.
 The default is IID with 50 clients. For a Dirichlet partition, set
 `PARTITION=dir DIR_ALPHA=0.5`.
 
-| Setting | ResNet-18 | ViT-Small / ViT-Base |
+| Setting | ResNet-18 / VGG | ViT-Small / ViT-Base |
 | --- | ---: | ---: |
 | Communication rounds | 100 | 500 |
 | Local epochs | 5 | 5 |

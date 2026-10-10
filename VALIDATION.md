@@ -65,3 +65,8 @@ Syntax and source integrity checks passed. Sixteen launcher dry runs checked
 invalid-dataset rejection. Six evaluator argument cases checked class counts
 and input sizes for ResNet-18 and ViT-Small/Base. No full ImageNet training or
 checkpoint accuracy run was performed for this launcher update.
+
+VGG launcher support: `vgg` and `vgg16` select the existing VGG-16 model and
+use the same launcher defaults as ResNet-18. Twenty launcher dry runs checked
+30 entry-point paths, including both VGG names on both static datasets. Ten
+evaluator argument cases checked dataset, class count and input size.
