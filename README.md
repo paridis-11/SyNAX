@@ -14,8 +14,8 @@ experiment logs, hardware measurements, or credentials.
 
 | Directory | Experiments | Entry points |
 | --- | --- | --- |
-| `static_cifar10/` | CIFAR-10, ResNet-18 and ViT-Small/Base; executor GPU memory | `SyNAX_normalized_snn.py`, `eval_cifar10_snn_checkpoint.py`, `benchmark_gpu_memory.py` |
-| `event_resnet18/` | CIFAR10-DVS and N-Caltech101, ResNet-18 | `synax_neuro.py`, `bp_sg_burst_resnet_event.py`, `bp_sg_sew_resnet_event.py`, `resnet18_event_online_baselines.py` |
+| `static/` | CIFAR-10, ResNet-18 and ViT-Small/Base; executor GPU memory | `SyNAX_normalized_snn.py`, `eval_cifar10_snn_checkpoint.py`, `benchmark_gpu_memory.py` |
+| `event/` | CIFAR10-DVS and N-Caltech101, ResNet-18 | `synax_neuro.py`, `bp_sg_burst_resnet_event.py`, `bp_sg_sew_resnet_event.py`, `resnet18_event_online_baselines.py` |
 | `scripts/` | Portable launch commands and dependency setup | See commands below |
 
 The event comparison includes SyNAX, architecture-matched Burst SG-BPTT,

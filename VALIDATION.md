@@ -31,3 +31,10 @@ memory benchmark has been run during packaging.
 The standardized benchmark successfully shows `--help` using the observed
 server environment, including its `.deps-synax-h100` Python dependency path
 and the documented protobuf setting.
+
+Directory rename checks on 2026-10-10: `static/` and `event/` retain all 62
+source hashes. All 61 Python files and all shell launchers pass syntax checks.
+Thirteen launcher dry runs checked 16 Python entry-point paths, covering all
+static models, both event datasets and all four event methods, plus the GPU
+memory launcher. Working directories, GPU masking, memory `PYTHONPATH` and
+the S-TLLR dependency path were checked without starting training.

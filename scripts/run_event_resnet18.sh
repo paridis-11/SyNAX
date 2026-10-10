@@ -8,7 +8,7 @@ case "$DATASET" in cifar10dvs|ncaltech101) ;; *) exit 2 ;; esac
 PY=${PYTHON_BIN:-python}
 DATA=${DATA_ROOT:?Set DATA_ROOT to the directory containing the event frame caches}
 BURST=${BURST_ROOT:-$ROOT/third_party/burst-ann2snn}
-cd "$ROOT/event_resnet18"
+cd "$ROOT/event"
 mkdir -p logs checkpoints
 export CUDA_VISIBLE_DEVICES=${GPU:-0}
 export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
@@ -41,7 +41,7 @@ case "$METHOD" in
     NORMALIZATION=sample_max
     if [[ "$DATASET" == cifar10dvs ]]; then NORMALIZATION=cifar10dvs_official; fi
     "$PY" -u resnet18_event_online_baselines.py "${COMMON[@]}" --method stllr_local \
-      --stllr-root "$ROOT/event_resnet18/third_party/S-TLLR" --batch-size 8 --T 8 \
+      --stllr-root "$ROOT/event/third_party/S-TLLR" --batch-size 8 --T 8 \
       --optimizer adam --lr 0.001 --weight-decay 0 --grad-clip 0 --label-smoothing 0 \
       --sequence-normalization "$NORMALIZATION" --augment 1 --crop-padding 8 \
       --hflip-prob 0.5 --temporal-shift 0 --bin-drop-prob 0 --polarity-drop-prob 0 \
@@ -49,4 +49,4 @@ case "$METHOD" in
       >"logs/$TAG.log" 2>&1 ;;
   *) echo 'METHOD must be synax, burst_sgbptt, sew_sgbptt, or stllr_local' >&2; exit 2 ;;
 esac
-echo "Completed: event_resnet18/logs/$TAG.log"
+echo "Completed: event/logs/$TAG.log"

@@ -14,7 +14,7 @@ DIR_ALPHA=${DIR_ALPHA:-0.5}
 NODES=${NODES:-50}
 BURST=${BURST_ROOT:-$ROOT/third_party/burst-ann2snn}
 TAG="synax_snn_cifar10_${MODEL}_${PARTITION}_n${NODES}_R${ROUNDS}_E5_T8_seed${SEED}_eta01"
-cd "$ROOT/static_cifar10"
+cd "$ROOT/static"
 mkdir -p logs checkpoints
 export CUDA_VISIBLE_DEVICES=${GPU:-0}
 export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
@@ -30,4 +30,4 @@ export SYNAX_ETA_SNN=0.1 SYNAX_RUN_NAME="$TAG"
   --sample-ratio 0.2 --snn-ratio 0.5 --partition "$PARTITION" --dir-alpha "$DIR_ALPHA" \
   --seed "$SEED" --test-T 8 --maxspike 5 --calib-iters 16 --calib-batches 16 \
   --converter "$CONVERTER" --burst-root "$BURST" >"logs/eval_${TAG}.log" 2>&1
-echo "Completed: static_cifar10/logs/train_${TAG}.log and eval_${TAG}.log"
+echo "Completed: static/logs/train_${TAG}.log and eval_${TAG}.log"

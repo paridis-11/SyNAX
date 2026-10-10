@@ -15,13 +15,13 @@ def main():
         actual = hashlib.sha256(path.read_bytes()).hexdigest()
         if actual != record['sha256']:
             raise RuntimeError('Copied source changed: ' + name)
-    sources = [p for d in ('static_cifar10', 'event_resnet18', 'scripts')
+    sources = [p for d in ('static', 'event', 'scripts')
                for p in (ROOT / d).rglob('*.py')]
     for path in sources:
         ast.parse(path.read_text(), filename=str(path))
     for path in (ROOT / 'scripts').glob('*.sh'):
         subprocess.run(['bash', '-n', str(path)], check=True)
-    forbidden = [p for d in ('static_cifar10', 'event_resnet18') for p in (ROOT / d).rglob('*')
+    forbidden = [p for d in ('static', 'event') for p in (ROOT / d).rglob('*')
                  if p.is_file() and (p.suffix in ('.pt', '.pth', '.npz', '.npy', '.safetensors', '.pem', '.key')
                                      or p.name in ('.env', 'credentials', 'id_rsa'))]
     if forbidden:

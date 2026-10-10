@@ -2,8 +2,8 @@
 
 ## Static CIFAR-10
 
-Run the static script from the package root. It changes to `static_cifar10/`,
-where the original loader downloads CIFAR-10 into `static_cifar10/data/`.
+Run the static script from the package root. It changes to `static/`,
+where the original loader downloads CIFAR-10 into `static/data/`.
 The loader uses the original CIFAR-10 train/test splits. Inputs default to
 224 x 224, as in the recovered training arguments.
 
