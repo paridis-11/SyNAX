@@ -4,8 +4,8 @@
 
 Run the static script from the package root. It changes to `static/`,
 where the original loader downloads CIFAR-10 into `static/data/`.
-The loader uses the original CIFAR-10 train/test splits. Inputs default to
-224 x 224, as in the recovered training arguments.
+The loader uses the original CIFAR-10 train/test splits. The training entry
+point uses 32 x 32 inputs for ResNet-18 and 224 x 224 inputs for ViTs.
 
 Burst calibration in `eval_cifar10_snn_checkpoint.py` uses a training-loader
 dataset. Dataset and model code are included, not the downloaded images.

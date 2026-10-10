@@ -15,6 +15,32 @@
 Event-stream baselines include architecture-matched Burst SG-BPTT,
 SEW-ResNet SG-BPTT, and local-loss S-TLLR.
 
+## Data
+
+Dataset paths below are relative to the repository root:
+
+```text
+static/data/
+  cifar-10-batches-py/
+  imagenet/
+    train/<class>/<image>
+    val/<class>/<image>
+
+data/
+  CIFAR10DVS/
+    frames_number_16_split_by_number/<class>/<sample>.npz
+  NCaltech101/
+    frames_number_16_split_by_number/<class>/<sample>.npz
+```
+
+CIFAR-10 is downloaded automatically on the first run. For ImageNet-1K,
+organize both training and validation images into matching class directories.
+
+Event experiments use prepared NPZ frame caches. Set `DATA_ROOT` to the
+directory containing `CIFAR10DVS/` and `NCaltech101/`; for the layout above,
+use `DATA_ROOT="$PWD/data"` when running from the repository root.
+See [DATA.md](DATA.md) for the frame format.
+
 ## Environment
 
 Use Python 3.10 on Linux and a CUDA-capable GPU. Create an isolated environment:
