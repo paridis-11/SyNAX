@@ -45,18 +45,15 @@ is disabled by default. Dataset preparation is described in `DATA.md`.
 
 ## Static-image Training
 
-Run one model and seed per invocation. Set `GPU` to an available physical GPU.
-The script masks that device and uses `cuda:0` within the process.
-
 ```bash
-GPU=0 bash scripts/run_static_cifar10.sh resnet18 42
-GPU=0 bash scripts/run_static_cifar10.sh vit_small 42
-GPU=0 bash scripts/run_static_cifar10.sh vit_base 42
+GPU=0 bash scripts/run_static_cifar10.sh resnet18
+GPU=0 bash scripts/run_static_cifar10.sh vit_small
+GPU=0 bash scripts/run_static_cifar10.sh vit_base
 ```
 
 The scripts train, then evaluate `best_ann.pt` using the appropriate converter.
-ResNet uses Burst ANN2SNN; ViTs use the native project converter. To repeat
-seeds 43--46, change the seed argument. The default is IID; for a Dirichlet
+ResNet uses Burst ANN2SNN; ViTs use the native project converter.
+The default is IID; for a Dirichlet
 partition use `PARTITION=dir DIR_ALPHA=0.5`. `NODES` defaults to 50.
 
 | Setting | ResNet-18 | ViT-Small / ViT-Base |
@@ -81,11 +78,11 @@ results were generated across different code revisions; the missing original
 Prepare both frame caches and supply their parent directory through `DATA_ROOT`.
 
 ```bash
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh synax cifar10dvs 42
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh synax ncaltech101 42
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh burst_sgbptt cifar10dvs 42
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh sew_sgbptt ncaltech101 42
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh stllr_local cifar10dvs 42
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh synax cifar10dvs
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh synax ncaltech101
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh burst_sgbptt cifar10dvs
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh sew_sgbptt ncaltech101
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh stllr_local cifar10dvs
 ```
 
 Each method supports both datasets. SyNAX and SG-BPTT main curves use seeds
