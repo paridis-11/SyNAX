@@ -1,75 +1,156 @@
 # SyNAX
+
 **Brain-inspired Symbiotic Learning Unlocks Dynamic On-Chip Neuromorphic Intelligence (Under Review)**
 
 ![image](Framework.png)
 
-## Software Experiment Release
+## Software Experiments
 
-The current CIFAR-10 ResNet/ViT and Figure 2 event-stream software experiments
-are in [`software_experiments/`](software_experiments/README.md). That directory
-contains their source dependencies, environment instructions, launch commands,
-checkpoint evaluator, and the Figure 2j GPU memory benchmark. Follow its README
-for the packaged experiments; the older instructions below describe legacy
-entry points and may not apply to this release.
+This package contains the software experiment code requested for the first
+SyNAX code release. It contains no datasets, pretrained weights, checkpoints,
+experiment logs, hardware measurements, or credentials.
 
-## **1. Data**
-This project uses three publicly available datasets. Please follow the steps below to download and prepare the datasets:
+## Contents
 
-1. Create a folder named `data` in the root directory of this project. 
+| Directory | Experiments | Entry points |
+| --- | --- | --- |
+| `static_cifar10/` | CIFAR-10, ResNet-18 and ViT-Small/Base; executor GPU memory | `SyNAX_normalized_snn.py`, `eval_cifar10_snn_checkpoint.py`, `benchmark_gpu_memory.py` |
+| `event_resnet18/` | CIFAR10-DVS and N-Caltech101, ResNet-18 | `synax_neuro.py`, `bp_sg_burst_resnet_event.py`, `bp_sg_sew_resnet_event.py`, `resnet18_event_online_baselines.py` |
+| `scripts/` | Portable launch commands and dependency setup | See commands below |
 
-2. Extract the downloaded dataset into the `data/covid` directory.  
-   - After extraction, the folder structure should look like:  
-     ```
-     data/
-       cifar10/
-       imagenet/
-       dvs-cifar-10/
-       n-caltech101/
-     ```
+The event comparison includes SyNAX, architecture-matched Burst SG-BPTT,
+SEW-ResNet SG-BPTT, and the local-loss S-TLLR implementation. Speck hardware
+experiments and illumination adaptation are outside this package.
 
----
+## Environment
 
-
-## 2. Install Dependencies 
-To set up the environment, ensure you have Python and Anaconda installed, then install the required libraries using the `requirements.txt` file, 12.1 cuda environment is recommended:
+Use Python 3.10 on Linux and a CUDA-capable GPU. Create an isolated environment:
 
 ```bash
-conda create -n SyNAX python=3.9
-conda activate SyNAX
-pip install -r requirements.txt
-pip install --upgrade wandb protobuf
-
+python3.10 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install torch==2.3.0 torchvision==0.18.0 --index-url https://download.pytorch.org/whl/cu121
+python -m pip install -r requirements.txt
+python scripts/fetch_burst_dependency.py
 ```
 
-## **3. Usage**
+`environment_observed.json` records the current server versions. The server uses
+an NVIDIA PyTorch build; the installation command above uses the corresponding
+public PyTorch release and is not a recovered historical environment lock.
 
-**3.1 Main Results**
+The scripts set `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python` for compatibility
+with the older ONNX installation found in the server image. Weights & Biases
+is disabled by default. Dataset preparation is described in `DATA.md`.
 
-```python
+## CIFAR-10 training and SNN evaluation
 
-python SyNAX.py --dataset cifar10 --node_num 50 --model Vit_small --R 500 --E 5 --partition iid  --batchsize 32 --test_T 8
-```
-
-**3.2 Energy Consumption**
-
-```python
-
-python energy_probe.py
-```
-
-**3.3 Memory Usage**
+Run one model and seed per invocation. Set `GPU` to an available physical GPU.
+The script masks that device and uses `cuda:0` within the process.
 
 ```bash
-cd software_experiments
+GPU=0 bash scripts/run_static_cifar10.sh resnet18 42
+GPU=0 bash scripts/run_static_cifar10.sh vit_small 42
+GPU=0 bash scripts/run_static_cifar10.sh vit_base 42
+```
+
+The scripts train, then evaluate `best_ann.pt` using the appropriate converter.
+ResNet uses Burst ANN2SNN; ViTs use the native project converter. To repeat
+seeds 43--46, change the seed argument. The default is IID; for a Dirichlet
+partition use `PARTITION=dir DIR_ALPHA=0.5`. `NODES` defaults to 50.
+
+| Setting | ResNet-18 | ViT-Small / ViT-Base |
+| --- | ---: | ---: |
+| Communication rounds | 100 | 500 |
+| Local epochs | 5 | 5 |
+| Total clients | 50 | 50 |
+| Client participation per round | 0.2 | 0.2 |
+| SNN client fraction | 0.5 | 0.5 |
+| Training batch size | 32 | 32 |
+| ANN optimizer / learning rate | AdamW / 0.001 | AdamW / 0.001 |
+| Executor coefficient | 0.1 | 0.1 |
+| SNN timesteps | 8 | 8 |
+
+The evaluation selects the saved best ANN checkpoint, rather than assuming the
+last round or best evaluated SNN is the same endpoint. Historical static
+results were generated across different code revisions; the missing original
+`SNN_multiseed/results.tsv` has not been reconstructed here.
+
+## Figure 2 event experiments
+
+Prepare both frame caches and supply their parent directory through `DATA_ROOT`.
+
+```bash
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh synax cifar10dvs 42
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh synax ncaltech101 42
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh burst_sgbptt cifar10dvs 42
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh sew_sgbptt ncaltech101 42
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh stllr_local cifar10dvs 42
+```
+
+Each method supports both datasets. SyNAX and SG-BPTT main curves use seeds
+42--44; S-TLLR was extended to seeds 42--46. The common federation protocol is
+six clients, full participation, 200 rounds, one local epoch, and SNN `T=8`.
+Method-specific optimizers, augmentations, batch sizes, and normalizations are
+explicit in the launcher. They are not all identical.
+
+Event SyNAX uses AdamW with learning rate 0.001 and executor coefficient 0.005.
+Burst and SEW SG-BPTT use SGD at 0.05. S-TLLR-local uses Adam at 0.001 with
+stage-local classifiers and persistent client optimizer states.
+
+## Figure 2j GPU memory benchmark
+
+Use `benchmark_gpu_memory.py` for the standardized SG-BPTT/SyNAX executor
+memory comparison. This is the only memory benchmark included in the package.
+
+From the package root:
+
+```bash
 GPU=0 bash scripts/run_gpu_memory.sh
 ```
 
-This uses `static_cifar10/benchmark_gpu_memory.py` for the standardized
-SG-BPTT/SyNAX executor memory comparison. The obsolete memory diagnostic has
-been removed.
+This runs ResNet-18 and ViT-Small/Base/Large with batch size 4, SNN `T=8`,
+FP32, three repeats, and SGD at learning rate 0.05, momentum 0.9 and weight
+decay 0.0005 for SG-BPTT. ResNet inputs are 32x32; ViT inputs are 224x224.
+It uses synthetic inputs and needs no dataset or checkpoint. SyNAX measures
+two forward probes with an in-memory perturbation direction, not ANN
+orchestrator memory or a complete federated training round. Model conversion
+occurs before peak statistics are reset. The reported metric includes all
+process-local live CUDA tensors at that point and during the measured step.
 
----
+CSV, summary CSV and metadata JSON are written under `results/memory/`.
+The figure metric is `peak_allocated_gib` from
+`torch.cuda.max_memory_allocated`, in GiB (bytes / 1024^3), not reserved
+memory or `nvidia-smi` process memory. Large-model SG-BPTT may require an
+80 GB GPU; an out-of-memory error is not a valid memory measurement.
+For a smaller run, pass model names:
 
-## **4. Contact**
+```bash
+GPU=0 bash scripts/run_gpu_memory.sh resnet18 vit_small
+```
 
-For any questions or issues, please open an issue on the GitHub repository.
+## External code and provenance
+
+Burst conversion depends on [bic-L/burst-ann2snn](https://github.com/bic-L/burst-ann2snn).
+The setup script fetches a fixed upstream commit and applies the three supplied
+server compatibility patches, verifying the resulting file hashes. This third-party repository
+is installed separately rather than relicensed as SyNAX code. Its server-side
+source hashes are recorded in `SOURCE_MANIFEST.json`; the upstream commit is
+not asserted to be the original experiment's commit. The patched conversion
+modules match the archived server files exactly.
+
+The included S-TLLR implementation retains its MIT license under
+`event_resnet18/third_party/S-TLLR/LICENSE`. See `THIRD_PARTY.md` for references.
+The parent SyNAX repository's license remains authoritative for SyNAX-owned
+code; this package does not assign a new license to third-party material.
+
+Training sources were copied from the server on 2026-10-10;
+the standardized memory benchmark was copied from the local
+Figure 2 measurement directory.
+`SOURCE_MANIFEST.json` records their hashes. Portable launchers and documents
+were added during packaging. `VALIDATION.md` records the checks actually run;
+the package has not rerun the full multi-seed experiments.
+
+## Contact
+
+For questions or issues, please open an issue on this repository.
