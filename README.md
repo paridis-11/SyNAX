@@ -17,6 +17,15 @@ SEW-ResNet SG-BPTT, and local-loss S-TLLR.
 
 ## Data
 
+| Dataset | Download | Preparation |
+| --- | --- | --- |
+| CIFAR-10 | [Official page](https://www.cs.toronto.edu/~kriz/cifar.html) | Downloaded automatically by the static loader. |
+| ImageNet-1K | [ImageNet download](https://www.image-net.org/download.php) | Download the ILSVRC2012 training and validation images, then organize them by class. |
+| CIFAR10-DVS | [Figshare](https://figshare.com/articles/dataset/CIFAR10-DVS_New/4724671) | Prepare 16-bin NPZ frame caches with SpikingJelly. |
+| N-Caltech101 | [Dataset page](https://www.garrickorchard.com/datasets/n-caltech101) | Download the archives and prepare 16-bin NPZ frame caches. |
+| DVS Gesture | [IBM dataset](https://ibm.box.com/s/3hiq58ww1pbbjrinh367ykfdf60xsfm8) | Download the source files and convert them to event NPZ files with SpikingJelly. |
+| N-MNIST | [Dataset page](https://www.garrickorchard.com/datasets/n-mnist) | Tonic downloads and extracts the training and test archives. |
+
 Dataset paths below are relative to the repository root:
 
 ```text
@@ -31,15 +40,25 @@ data/
     frames_number_16_split_by_number/<class>/<sample>.npz
   NCaltech101/
     frames_number_16_split_by_number/<class>/<sample>.npz
+  DvsGesture/
+    events_np/
+      train/<class>/<sample>.npz
+      test/<class>/<sample>.npz
+  NMNIST/
+    NMNIST/
+      Train/<digit>/<sample>.bin
+      Test/<digit>/<sample>.bin
 ```
 
 CIFAR-10 is downloaded automatically on the first run. For ImageNet-1K,
 organize both training and validation images into matching class directories.
 
-Event experiments use prepared NPZ frame caches. Set `DATA_ROOT` to the
+The ResNet event experiments use CIFAR10-DVS and N-Caltech101 frame caches.
+Set `DATA_ROOT` to the
 directory containing `CIFAR10DVS/` and `NCaltech101/`; for the layout above,
 use `DATA_ROOT="$PWD/data"` when running from the repository root.
-See [DATA.md](DATA.md) for the frame format.
+N-MNIST and DVS Gesture are used in the Speck hardware experiments.
+See [DATA.md](DATA.md) for download, conversion and loader-path instructions.
 
 ## Environment
 
