@@ -125,6 +125,42 @@ Event SyNAX uses AdamW with learning rate 0.001 and executor coefficient 0.005.
 Burst and SEW SG-BPTT use SGD at 0.05. S-TLLR-local uses Adam at 0.001 with
 stage-local classifiers and persistent client optimizer states.
 
+## Speck Multi-host Learning
+
+Connect the hosts through Tailscale or a LAN. Run the following commands from
+the repository root, replacing `<coordinator-ip>` and the file paths.
+
+On the coordinator, generate credentials and start the server:
+
+```bash
+python -m speck.provision --directory speck/credentials --ann-clients 2 --executors 4
+python -m speck.server \
+  --roster speck/credentials/roster.json --bind <coordinator-ip> \
+  --backend event --checkpoint /path/to/best_sinabs_snn.pt \
+  --output speck/runs/multihost --rounds 80
+```
+
+Copy each worker's credential JSON to its host. On an ANN host:
+
+```bash
+python -m speck.client \
+  --server http://<coordinator-ip>:8765 \
+  --credentials speck/credentials/ann-1.json --state-dir speck/runs/ann-1 \
+  --device cuda:0 --data-root /path/to/training-data
+```
+
+On a host connected to Speck:
+
+```bash
+python -m speck.client \
+  --server http://<coordinator-ip>:8765 \
+  --credentials speck/credentials/executor-1.json --state-dir speck/runs/executor-1 \
+  --data-root /path/to/training-data --speck-device speck2fdevkit:1
+```
+
+Replace the worker ID and board ID for each device. See
+[speck/README.md](speck/README.md) for environment, data paths and training options.
+
 ## GPU Memory Benchmark
 
 ```bash
@@ -156,9 +192,8 @@ Run `python scripts/fetch_burst_dependency.py` to install the pinned version
 with the supplied compatibility patches.
 
 The [S-TLLR](https://github.com/mapolinario94/S-TLLR) baseline is included under
-its MIT license. See [THIRD_PARTY.md](THIRD_PARTY.md) for references,
-[SOURCE_MANIFEST.json](SOURCE_MANIFEST.json) for source hashes, and
-[VALIDATION.md](VALIDATION.md) for validation details.
+its MIT license. See [THIRD_PARTY.md](THIRD_PARTY.md) for references and
+[SOURCE_MANIFEST.json](SOURCE_MANIFEST.json) for source hashes.
 
 ## Contact
 
