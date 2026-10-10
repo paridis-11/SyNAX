@@ -4,11 +4,6 @@
 
 ![image](Framework.png)
 
-## Software Experiments
-
-Code for SyNAX software experiments on static images and event streams,
-including SNN evaluation and executor GPU memory benchmarks.
-
 ## Contents
 
 | Directory | Experiments | Entry points |
