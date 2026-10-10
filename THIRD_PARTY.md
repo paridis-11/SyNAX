@@ -11,7 +11,3 @@
 - Static ViT modules retain their original attribution to timm and EVA in
   source comments. The package keeps these headers.
 
-The local-loss S-TLLR runner is the adapted variant evaluated in this project.
-It should not be described as reproducing every official S-TLLR experiment.
-OTTT and other diagnostic method choices remain in the shared runner, but
-their third-party source and launch commands are outside this release's scope.
