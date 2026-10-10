@@ -43,7 +43,7 @@ The scripts set `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python` for compatibilit
 with the older ONNX installation found in the server image. Weights & Biases
 is disabled by default. Dataset preparation is described in `DATA.md`.
 
-## CIFAR-10 training and SNN evaluation
+## Static-image Training
 
 Run one model and seed per invocation. Set `GPU` to an available physical GPU.
 The script masks that device and uses `cuda:0` within the process.
