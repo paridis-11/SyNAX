@@ -10,6 +10,20 @@ The loader uses the original CIFAR-10 train/test splits. Inputs default to
 Burst calibration in `eval_cifar10_snn_checkpoint.py` uses a training-loader
 dataset. Dataset and model code are included, not the downloaded images.
 
+## ImageNet-1K
+
+Set `DATASET=imagenet` in the static launcher and prepare class-organized images:
+
+```text
+static/data/imagenet/
+  train/<class>/<image>
+  val/<class>/<image>
+```
+
+The loader uses 1,000 classes and 224 x 224 inputs. The checkpoint evaluator
+uses `--dataset imagenet`; ImageNet conversion thresholds use training data
+and accuracy is evaluated on the validation split.
+
 ## CIFAR10-DVS and N-Caltech101
 
 The original experiments used pre-integrated NPZ frame caches. Expected layout:

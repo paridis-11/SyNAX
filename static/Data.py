@@ -290,7 +290,7 @@ class Data(object):
 
 
         elif args.partition == 'dir':
-            if args.dataset.lower() == 'cifar10':
+            if args.dataset.lower() in ('cifar10', 'imagenet'):
                 targets = np.array(trainset.targets)
             else:
                 targets = np.array(trainset.labels)

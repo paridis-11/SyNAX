@@ -35,10 +35,12 @@ by default.
 ## Static-image Training
 
 ```bash
-GPU=0 bash scripts/run_static_cifar10.sh resnet18
-GPU=0 bash scripts/run_static_cifar10.sh vit_small
-GPU=0 bash scripts/run_static_cifar10.sh vit_base
+GPU=0 DATASET=cifar10 bash scripts/run_static_cifar10.sh resnet18
+GPU=0 DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_small
+GPU=0 DATASET=cifar10 bash scripts/run_static_cifar10.sh vit_base
 ```
+
+Set `DATASET=imagenet` to use ImageNet-1K.
 
 The scripts train, then evaluate `best_ann.pt` using the appropriate converter.
 ResNet uses Burst ANN2SNN; ViTs use the native project converter.
@@ -63,13 +65,13 @@ Prepare both frame caches and supply their parent directory through `DATA_ROOT`.
 
 ```bash
 GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh synax cifar10dvs
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh synax ncaltech101
 GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh burst_sgbptt cifar10dvs
-GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh sew_sgbptt ncaltech101
+GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh sew_sgbptt cifar10dvs
 GPU=0 DATA_ROOT=/path/to/event_data bash scripts/run_event_resnet18.sh stllr_local cifar10dvs
 ```
 
-Each method supports both datasets. The shared federation protocol is
+Replace `cifar10dvs` with `ncaltech101` to use N-Caltech101.
+The shared federation protocol is
 six clients, full participation, 200 rounds, one local epoch, and SNN `T=8`.
 Method-specific optimization and preprocessing settings are defined in
 `scripts/run_event_resnet18.sh`.

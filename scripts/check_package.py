@@ -1,4 +1,4 @@
-"""Check syntax, original source hashes and release contents without training."""
+"""Check syntax, packaged source hashes and release contents without training."""
 import ast
 import hashlib
 import json
@@ -26,7 +26,7 @@ def main():
                                      or p.name in ('.env', 'credentials', 'id_rsa'))]
     if forbidden:
         raise RuntimeError('Unexpected data or credential file: ' + str(forbidden[0]))
-    print('Original source hashes verified:', len(manifest['files']))
+    print('Packaged source hashes verified:', len(manifest['files']))
     print('Python files parsed:', len(sources))
     print('Launch shell syntax: passed')
     print('Source-only contents: passed')

@@ -50,3 +50,18 @@ The recorded server environment uses an NVIDIA PyTorch build. The README
 installation recipe uses the corresponding public PyTorch release. Launchers
 set `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python` for compatibility with the
 older ONNX installation in the server image.
+
+## Static Dataset Selection
+
+The static launcher now accepts `DATASET=cifar10` or `DATASET=imagenet` and
+passes the selection to both training and checkpoint evaluation. The evaluator
+uses dataset-specific class counts and input sizes. ImageNet Dirichlet
+partitions use ImageFolder targets; ImageNet native conversion is calibrated
+on training data. Original server hashes for the two adapted source files are
+retained in `SOURCE_MANIFEST.json`.
+
+Syntax and source integrity checks passed. Sixteen launcher dry runs checked
+22 entry-point paths, including both static datasets, checkpoint names and
+invalid-dataset rejection. Six evaluator argument cases checked class counts
+and input sizes for ResNet-18 and ViT-Small/Base. No full ImageNet training or
+checkpoint accuracy run was performed for this launcher update.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Post-hoc SNN evaluation for FedNeurX CIFAR-10 checkpoints.
+"""Post-hoc SNN evaluation for FedNeurX CIFAR-10 and ImageNet checkpoints.
 
 CNN checkpoints use Burst-ANN2SNN. ViT checkpoints use the repository's
 native ViT-compatible ANN2SNN path. Training loops remain unchanged.
@@ -69,7 +69,7 @@ def default_args(saved: Dict, cli_args) -> SimpleNamespace:
     args = dict(saved or {})
     args.update(
         {
-            "dataset": "cifar10",
+            "dataset": cli_args.dataset,
             "model": cli_args.model,
             "device": cli_args.device,
             "batchsize": cli_args.batch_size,
@@ -82,10 +82,10 @@ def default_args(saved: Dict, cli_args) -> SimpleNamespace:
             "snn_ratio": cli_args.snn_ratio,
         }
     )
-    args.setdefault("num_classes", 10)
-    args.setdefault("classes", 10)
+    args["num_classes"] = 1000 if cli_args.dataset == "imagenet" else 10
+    args["classes"] = args["num_classes"]
     is_vit = "vit" in cli_args.model.lower()
-    args["shape"] = 224 if is_vit else 32
+    args["shape"] = 224 if is_vit or cli_args.dataset == "imagenet" else 32
     args["type"] = "VIT" if is_vit else "CNN"
     args.setdefault("all_data", True)
     args.setdefault("val_ratio", 0.1)
@@ -327,6 +327,7 @@ class LimitedLoader:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--dataset", choices=["cifar10", "imagenet"], default="cifar10")
     parser.add_argument(
         "--model",
         required=True,
@@ -389,11 +390,16 @@ def main() -> None:
     print(f"converter={converter}", flush=True)
 
     if converter == "native":
+        calibration_loader = data.test_all
+        if args.dataset == "imagenet":
+            calibration_loader = data.train_loader[0]
+            if args.calib_batches:
+                calibration_loader = LimitedLoader(calibration_loader, args.calib_batches)
         if args.native_fp32:
             print("native_precision=fp32", flush=True)
             native_snn = convert_to_native_snn_fp32(
                 ann,
-                data.test_all,
+                calibration_loader,
                 run_args,
             ).to(run_args.device)
             native_curve = evaluate_native_snn_fp32(
@@ -404,7 +410,7 @@ def main() -> None:
             )
         else:
             print("native_precision=amp", flush=True)
-            native_snn = ann2snn(ann, data.test_all, run_args).to(run_args.device)
+            native_snn = ann2snn(ann, calibration_loader, run_args).to(run_args.device)
             native_curve = evaluate_snn(
                 data.test_all,
                 native_snn,

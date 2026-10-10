@@ -11,16 +11,20 @@
       "bytes": 16275
     },
     "static/eval_cifar10_snn_checkpoint.py": {
-      "sha256": "e10248388353f2a0c9d65a875bed02d2c46e2939c5d309cf95bf3f27b97d2056",
-      "bytes": 15669
+      "sha256": "263d3217c2e6d92254f23f95ff34261f811243b3392b5028ce1fe30d0212c3a9",
+      "bytes": 16125,
+      "server_snapshot_sha256": "e10248388353f2a0c9d65a875bed02d2c46e2939c5d309cf95bf3f27b97d2056",
+      "release_adaptation": "Added dataset selection and ImageNet class/input settings; ImageNet native calibration uses training data."
     },
     "static/Args.py": {
       "sha256": "7c64b771509e153a45d5d5123f04aa70b7bc6e33dff6c9c8a5b75db1b2eddfe0",
       "bytes": 5864
     },
     "static/Data.py": {
-      "sha256": "e76c58ba6306c05ddcfa16e4f2174d03ec80f1a3640257a5aba857fcfb7db801",
-      "bytes": 13588
+      "sha256": "37c3883bfeb2b330b9cfff8a5c0b89ee870f0404eae7b9bdc211d34ff33fc8fc",
+      "bytes": 13602,
+      "server_snapshot_sha256": "e76c58ba6306c05ddcfa16e4f2174d03ec80f1a3640257a5aba857fcfb7db801",
+      "release_adaptation": "Use ImageFolder targets for ImageNet Dirichlet partitions."
     },
     "static/Trainer.py": {
       "sha256": "9e3d83c4e378b4fc10a701777a4cdeb8d07948a24b6a34a2a3e816776e67eb30",
